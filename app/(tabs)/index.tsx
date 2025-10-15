@@ -15,7 +15,9 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { SimpleBarcodeScanner } from "../../components/SimpleBarcodeScanner";
 import { Item, useStorage } from "../../hooks/useStorage";
+import { lookupProduct } from "../../utils/productLookup";
 
 type SectionKey = "fridge" | "freezer";
 
@@ -38,6 +40,8 @@ export default function Home() {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [editExpiryDate, setEditExpiryDate] = useState("");
   const [editSection, setEditSection] = useState<SectionKey | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const [isLookingUp, setIsLookingUp] = useState(false);
 
   // Usa il hook personalizzato per la persistenza
   const { data: fridge, saveData: saveFridge, loading: fridgeLoading } = useStorage<Item[]>("fridge", [
@@ -156,6 +160,42 @@ export default function Home() {
     setEditingItem(null);
     setEditExpiryDate("");
     setEditSection(null);
+  };
+
+  const handleBarcodeScan = async (barcode: string) => {
+    setShowScanner(false);
+    setIsLookingUp(true);
+    
+    try {
+      console.log('Scanning barcode:', barcode);
+      const productInfo = await lookupProduct(barcode);
+      
+      if (productInfo) {
+        // Auto-compila il form con i dati del prodotto
+        setNameInput(productInfo.name);
+        setSelectedCategory(productInfo.category);
+        if (productInfo.estimatedExpiry) {
+          setExpiryDate(productInfo.estimatedExpiry);
+        }
+        
+        Alert.alert(
+          'Prodotto trovato!',
+          `Nome: ${productInfo.name}\nCategoria: ${CATEGORIES.find(c => c.id === productInfo.category)?.name || 'Altro'}`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Prodotto non trovato',
+          'Il prodotto non è stato trovato nel database. Puoi inserire i dati manualmente.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error looking up product:', error);
+      Alert.alert('Errore', 'Impossibile cercare il prodotto. Riprova.');
+    } finally {
+      setIsLookingUp(false);
+    }
   };
 
   const getCategoryInfo = (categoryId?: string) => {
@@ -392,6 +432,15 @@ export default function Home() {
                     onChangeText={setNameInput}
                     style={[styles.input, { flex: 1 }]}
                   />
+                  <TouchableOpacity
+                    style={styles.scannerButton}
+                    onPress={() => setShowScanner(true)}
+                    disabled={isLookingUp}
+                  >
+                    <Text style={styles.scannerButtonText}>
+                      {isLookingUp ? '🔍' : '📷'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.formRow}>
                   <TextInput
@@ -442,6 +491,14 @@ export default function Home() {
               </TouchableOpacity>
             </View>
           </View>
+        )}
+
+        {/* Barcode Scanner */}
+        {showScanner && (
+          <SimpleBarcodeScanner
+            onScan={handleBarcodeScan}
+            onClose={() => setShowScanner(false)}
+          />
         )}
 
         {/* Modal modifica data scadenza */}
@@ -978,5 +1035,19 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "600",
     fontSize: 16,
+  },
+  scannerButton: {
+    backgroundColor: "#0077cc",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginLeft: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 50,
+  },
+  scannerButtonText: {
+    fontSize: 20,
+    color: "white",
   },
 });
