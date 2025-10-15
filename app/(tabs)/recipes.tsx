@@ -1,22 +1,14 @@
-import React, { useMemo, useState } from 'react';
-import { FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useStorage } from '../../hooks/useStorage';
+import { matchIngredients } from '../../utils/ingredientMatcher';
+import { AVAILABLE_CATEGORIES, CATEGORY_TRANSLATIONS, getRandomRecipes, Recipe, searchRecipesByCategory } from '../../utils/recipeAPI';
 
-type Recipe = {
-  id: string;
-  name: string;
-  description: string;
-  ingredients: string[];
-  instructions: string[];
-  difficulty: 'Facile' | 'Media' | 'Difficile';
-  time: string;
-  servings: number;
-  category: string;
-};
-
-const RECIPES_DATABASE: Recipe[] = [
+// Database locale come fallback
+const FALLBACK_RECIPES: Recipe[] = [
   {
-    id: '1',
+    id: 'fallback-1',
     name: 'Pasta al Pomodoro',
     description: 'Classica pasta con pomodoro fresco e basilico',
     ingredients: ['Pasta', 'Pomodori', 'Aglio', 'Basilico', 'Olio d\'oliva', 'Sale'],
@@ -29,90 +21,9 @@ const RECIPES_DATABASE: Recipe[] = [
     difficulty: 'Facile',
     time: '20 min',
     servings: 4,
-    category: 'Primi'
-  },
-  {
-    id: '2',
-    name: 'Insalata Caprese',
-    description: 'Fresca insalata con mozzarella, pomodori e basilico',
-    ingredients: ['Mozzarella', 'Pomodori', 'Basilico', 'Olio d\'oliva', 'Sale', 'Pepe'],
-    instructions: [
-      'Taglia a fette mozzarella e pomodori',
-      'Disponi alternando mozzarella e pomodori',
-      'Condisci con olio, sale e pepe',
-      'Guarnisci con foglie di basilico'
-    ],
-    difficulty: 'Facile',
-    time: '10 min',
-    servings: 2,
-    category: 'Antipasti'
-  },
-  {
-    id: '3',
-    name: 'Pollo al Limone',
-    description: 'Petto di pollo marinato con limone e erbe aromatiche',
-    ingredients: ['Pollo', 'Limone', 'Aglio', 'Rosmarino', 'Olio d\'oliva', 'Sale', 'Pepe'],
-    instructions: [
-      'Marina il pollo con limone, aglio e rosmarino per 30 min',
-      'Scalda l\'olio in una padella',
-      'Cuoci il pollo per 6-7 min per lato',
-      'Servi con il sugo di cottura'
-    ],
-    difficulty: 'Media',
-    time: '45 min',
-    servings: 4,
-    category: 'Secondi'
-  },
-  {
-    id: '4',
-    name: 'Risotto ai Funghi',
-    description: 'Cremoso risotto con funghi porcini e parmigiano',
-    ingredients: ['Riso', 'Funghi', 'Cipolla', 'Brodo', 'Parmigiano', 'Burro', 'Vino bianco'],
-    instructions: [
-      'Soffriggi la cipolla nel burro',
-      'Aggiungi i funghi e cuoci per 5 min',
-      'Versa il riso e tostalo per 2 min',
-      'Aggiungi il vino e poi il brodo poco alla volta',
-      'Mantecare con parmigiano e burro'
-    ],
-    difficulty: 'Difficile',
-    time: '30 min',
-    servings: 4,
-    category: 'Primi'
-  },
-  {
-    id: '5',
-    name: 'Torta di Mele',
-    description: 'Dolce torta di mele con cannella e zucchero',
-    ingredients: ['Mele', 'Farina', 'Uova', 'Zucchero', 'Burro', 'Cannella', 'Lievito'],
-    instructions: [
-      'Sbuccia e taglia le mele a fette',
-      'Mescola farina, zucchero, uova e burro',
-      'Aggiungi il lievito e la cannella',
-      'Disponi le mele nell\'impasto',
-      'Cuoci in forno a 180°C per 40 min'
-    ],
-    difficulty: 'Media',
-    time: '60 min',
-    servings: 8,
-    category: 'Dolci'
-  },
-  {
-    id: '6',
-    name: 'Minestrone',
-    description: 'Zuppa di verdure con pasta e legumi',
-    ingredients: ['Verdure miste', 'Pasta', 'Fagioli', 'Pomodori', 'Cipolla', 'Carote', 'Sedano'],
-    instructions: [
-      'Trita tutte le verdure',
-      'Soffriggi cipolla, carote e sedano',
-      'Aggiungi le altre verdure e i fagioli',
-      'Cuoci per 30 minuti',
-      'Aggiungi la pasta negli ultimi 10 minuti'
-    ],
-    difficulty: 'Facile',
-    time: '45 min',
-    servings: 6,
-    category: 'Zuppe'
+    category: 'Primi',
+    image: '',
+    source: 'Locale'
   }
 ];
 
@@ -121,6 +32,10 @@ export default function RecipesScreen() {
   const { data: freezerData } = useStorage<any[]>('freezer', []);
   
   const [selectedCategory, setSelectedCategory] = useState<string>('Tutte');
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filterEnabled, setFilterEnabled] = useState(true); // Filtro 70% attivo di default
   
   // Combina tutti i prodotti disponibili
   const availableProducts = useMemo(() => {
@@ -128,38 +43,83 @@ export default function RecipesScreen() {
     return allProducts.map(product => product.name?.toLowerCase() || '');
   }, [fridgeData, freezerData]);
 
+  // Carica ricette all'avvio
+  useEffect(() => {
+    loadRecipes();
+  }, []);
+
+  const loadRecipes = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Carica ricette casuali come default
+      const randomRecipes = await getRandomRecipes(10);
+      setRecipes(randomRecipes);
+    } catch (err) {
+      console.error('Errore nel caricamento ricette:', err);
+      setError('Errore nel caricamento delle ricette');
+      setRecipes(FALLBACK_RECIPES);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Carica ricette per categoria
+  const loadRecipesByCategory = async (category: string) => {
+    if (category === 'Tutte') {
+      loadRecipes();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Trova la categoria inglese corrispondente
+      const englishCategory = Object.keys(CATEGORY_TRANSLATIONS).find(
+        key => CATEGORY_TRANSLATIONS[key] === category
+      ) || category;
+      
+      console.log('Cercando ricette per categoria:', englishCategory);
+      const categoryRecipes = await searchRecipesByCategory(englishCategory);
+      console.log('Ricette trovate:', categoryRecipes.length);
+      
+      if (categoryRecipes.length === 0) {
+        // Se non ci sono ricette per questa categoria, carica ricette casuali
+        console.log('Nessuna ricetta trovata per categoria, caricando ricette casuali...');
+        const randomRecipes = await getRandomRecipes(10);
+        setRecipes(randomRecipes);
+      } else {
+        setRecipes(categoryRecipes);
+      }
+    } catch (err) {
+      console.error('Errore nel caricamento ricette per categoria:', err);
+      setError('Errore nel caricamento delle ricette');
+      setRecipes(FALLBACK_RECIPES);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Filtra ricette in base agli ingredienti disponibili
   const suggestedRecipes = useMemo(() => {
-    return RECIPES_DATABASE.map(recipe => {
-      const availableIngredients = recipe.ingredients.filter(ingredient => 
-        availableProducts.some(product => 
-          product.includes(ingredient.toLowerCase()) || 
-          ingredient.toLowerCase().includes(product)
-        )
-      );
-      
-      const matchPercentage = (availableIngredients.length / recipe.ingredients.length) * 100;
+    return recipes.map(recipe => {
+      const matchResult = matchIngredients(availableProducts, recipe.ingredients);
       
       return {
         ...recipe,
-        availableIngredients,
-        missingIngredients: recipe.ingredients.filter(ingredient => 
-          !availableIngredients.includes(ingredient)
-        ),
-        matchPercentage
+        availableIngredients: matchResult.availableIngredients,
+        missingIngredients: matchResult.missingIngredients,
+        matchPercentage: matchResult.matchPercentage
       };
-    }).sort((a, b) => b.matchPercentage - a.matchPercentage);
-  }, [availableProducts]);
+    })
+    .filter(recipe => !filterEnabled || recipe.matchPercentage >= 70) // Filtro condizionale
+    .sort((a, b) => b.matchPercentage - a.matchPercentage);
+  }, [recipes, availableProducts, filterEnabled]);
 
-  // Filtra per categoria
-  const filteredRecipes = useMemo(() => {
-    if (selectedCategory === 'Tutte') {
-      return suggestedRecipes;
-    }
-    return suggestedRecipes.filter(recipe => recipe.category === selectedCategory);
-  }, [suggestedRecipes, selectedCategory]);
-
-  const categories = ['Tutte', ...Array.from(new Set(RECIPES_DATABASE.map(r => r.category)))];
+  // Categorie disponibili
+  const categories = ['Tutte', ...AVAILABLE_CATEGORIES.map(cat => CATEGORY_TRANSLATIONS[cat] || cat)];
 
   const renderRecipe = ({ item }: { item: any }) => (
     <View style={styles.recipeCard}>
@@ -208,6 +168,18 @@ export default function RecipesScreen() {
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Ricette Consigliate</Text>
       
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[styles.filterButton, filterEnabled && styles.filterButtonActive]}
+          onPress={() => setFilterEnabled(!filterEnabled)}
+        >
+          <IconSymbol name="line.3.horizontal.decrease" size={16} color={filterEnabled ? '#fff' : '#666'} />
+          <Text style={[styles.filterButtonText, filterEnabled && styles.filterButtonTextActive]}>
+            Ricette con i tuoi ingredienti
+          </Text>
+        </TouchableOpacity>
+      </View>
+      
       {/* Filtri categoria */}
       <View style={styles.categoriesContainer}>
         <ScrollView 
@@ -222,7 +194,10 @@ export default function RecipesScreen() {
               styles.categoryButton,
               selectedCategory === category && styles.selectedCategory
             ]}
-            onPress={() => setSelectedCategory(category)}
+            onPress={() => {
+              setSelectedCategory(category);
+              loadRecipesByCategory(category);
+            }}
           >
             <Text 
               style={[
@@ -240,13 +215,39 @@ export default function RecipesScreen() {
 
       {/* Lista ricette */}
       <View style={styles.recipesContainer}>
-        <FlatList
-          data={filteredRecipes}
-          keyExtractor={(item) => item.id}
-          renderItem={renderRecipe}
-          contentContainerStyle={styles.recipesList}
-          showsVerticalScrollIndicator={false}
-        />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#0b67b2" />
+            <Text style={styles.loadingText}>Caricamento ricette...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={loadRecipes}>
+              <Text style={styles.retryButtonText}>Riprova</Text>
+            </TouchableOpacity>
+          </View>
+        ) : suggestedRecipes.length === 0 ? (
+          <View style={styles.noRecipesContainer}>
+            <Text style={styles.noRecipesTitle}>
+              {filterEnabled ? 'Nessuna ricetta compatibile' : 'Nessuna ricetta disponibile'}
+            </Text>
+            <Text style={styles.noRecipesText}>
+              {filterEnabled 
+                ? 'Non ci sono ricette con almeno il 70% degli ingredienti disponibili. Prova a disattivare il filtro o aggiungi più prodotti al frigo.'
+                : 'Non ci sono ricette disponibili per questa categoria. Prova a cambiare categoria o aggiungi più prodotti al frigo.'
+              }
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={suggestedRecipes}
+            keyExtractor={(item) => item.id}
+            renderItem={renderRecipe}
+            contentContainerStyle={styles.recipesList}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -262,8 +263,37 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
     color: '#333',
+  },
+  filterContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  filterButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    minWidth: 200,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 8,
+  },
+  filterButtonActive: {
+    backgroundColor: '#0b67b2',
+    borderColor: '#0b67b2',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  filterButtonTextActive: {
+    color: 'white',
   },
   categoriesContainer: {
     marginBottom: 8,
@@ -386,5 +416,63 @@ const styles = StyleSheet.create({
   ingredientText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  // Stili per loading e errori
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#e74c3c',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#0b67b2',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Stili per nessuna ricetta
+  noRecipesContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  noRecipesTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  noRecipesText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

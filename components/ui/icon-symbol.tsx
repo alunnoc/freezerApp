@@ -23,6 +23,7 @@ const MAPPING = {
   'list.bullet.rectangle.fill': 'list',
   'chart.bar.fill': 'bar-chart',
   'book.fill': 'menu-book',
+  'line.3.horizontal.decrease': 'filter-list',
 } as IconMapping;
 
 /**
