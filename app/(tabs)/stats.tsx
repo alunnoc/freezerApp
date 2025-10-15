@@ -23,11 +23,17 @@ const CATEGORIES = [
 ];
 
 export default function Stats() {
-  const { data: fridge } = useStorage<Item[]>("fridge", []);
-  const { data: freezer } = useStorage<Item[]>("freezer", []);
+  const { data: fridge, loading: fridgeLoading } = useStorage<Item[]>("fridge", []);
+  const { data: freezer, loading: freezerLoading } = useStorage<Item[]>("freezer", []);
   const [showExportOptions, setShowExportOptions] = useState(false);
 
   const allItems = [...fridge, ...freezer];
+  
+  // Debug: log the data to see what's happening
+  console.log('Stats - Fridge data:', fridge);
+  console.log('Stats - Freezer data:', freezer);
+  console.log('Stats - All items:', allItems);
+  console.log('Stats - Loading states:', { fridgeLoading, freezerLoading });
 
   const handleExport = async (format: 'json' | 'csv' | 'summary') => {
     try {
@@ -137,6 +143,20 @@ export default function Stats() {
       {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
     </View>
   );
+
+  // Show loading state if data is still loading
+  if (fridgeLoading || freezerLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Statistiche</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Caricamento dati...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -444,5 +464,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#e53935",
     marginTop: 2,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: 18,
+    color: "#666",
+    fontWeight: "500",
   },
 });
