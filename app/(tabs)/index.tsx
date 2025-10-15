@@ -15,7 +15,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import { SimpleBarcodeScanner } from "../../components/SimpleBarcodeScanner";
+import { OfficialCameraScanner } from "../../components/OfficialCameraScanner";
 import { Item, useStorage } from "../../hooks/useStorage";
 import { lookupProduct } from "../../utils/productLookup";
 
@@ -495,7 +495,7 @@ export default function Home() {
 
         {/* Barcode Scanner */}
         {showScanner && (
-          <SimpleBarcodeScanner
+          <OfficialCameraScanner
             onScan={handleBarcodeScan}
             onClose={() => setShowScanner(false)}
           />
@@ -609,13 +609,13 @@ export default function Home() {
             style={[styles.section, styles.fridge]}
             onPress={() => setSection("fridge")}
           >
-            <Text style={styles.sectionText}>Fridge</Text>
+            <Text style={styles.sectionText}>🧊 Fridge</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.section, styles.freezer]}
             onPress={() => setSection("freezer")}
           >
-            <Text style={styles.sectionText}>Freezer</Text>
+            <Text style={styles.sectionText}>❄️ Freezer</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -658,9 +658,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: "hidden",
   },
-  section: { flex: 1, justifyContent: "center", alignItems: "center" },
-  freezer: { backgroundColor: "#b3e5fc" },
-  fridge: { backgroundColor: "#fff8e1" },
+  section: { 
+    justifyContent: "center", 
+    alignItems: "center" 
+  },
+  fridge: { 
+    backgroundColor: "#fff8e1",
+    flex: 2
+  },
+  freezer: { 
+    backgroundColor: "#b3e5fc",
+    flex: 1
+  },
   sectionText: { fontSize: 22, fontWeight: "600" },
 
   empty: { textAlign: "center", color: "#666", marginTop: 12 },

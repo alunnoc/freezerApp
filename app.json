@@ -37,6 +37,14 @@
           "backgroundColor": "#ffffff",
           "dark": { "backgroundColor": "#000000" }
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan barcodes",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for video recording",
+          "recordAudioAndroid": true
+        }
       ]
     ],
     "experiments": {
