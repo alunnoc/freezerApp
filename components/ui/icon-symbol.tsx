@@ -23,7 +23,13 @@ const MAPPING = {
   'list.bullet.rectangle.fill': 'list',
   'chart.bar.fill': 'bar-chart',
   'book.fill': 'menu-book',
+  'book.closed.fill': 'book',
   'line.3.horizontal.decrease': 'filter-list',
+  'icloud.and.arrow.up': 'cloud-upload',
+  'arrow.triangle.2.circlepath': 'sync',
+  'square.and.arrow.up': 'upload',
+  'square.and.arrow.down': 'download',
+  'xmark.circle': 'cancel',
 } as IconMapping;
 
 /**

@@ -41,6 +41,7 @@ export default function RecipesScreen() {
   const [hasMoreRecipes, setHasMoreRecipes] = useState(true);
   const [categoryExhausted, setCategoryExhausted] = useState(false);
   const [categoryOffset, setCategoryOffset] = useState<Record<string, number>>({});
+  const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null);
   
   // Combina tutti i prodotti disponibili
   const availableProducts = useMemo(() => {
@@ -194,14 +195,24 @@ export default function RecipesScreen() {
   // Categorie disponibili
   const categories = ['Tutte', ...AVAILABLE_CATEGORIES.map(cat => CATEGORY_TRANSLATIONS[cat] || cat)];
 
-  const renderRecipe = ({ item }: { item: any }) => (
-    <View style={styles.recipeCard}>
-      <View style={styles.recipeHeader}>
-        <Text style={styles.recipeName}>{item.name}</Text>
-        <View style={styles.matchBadge}>
-          <Text style={styles.matchText}>{Math.round(item.matchPercentage)}%</Text>
+  const renderRecipe = ({ item }: { item: any }) => {
+    const isExpanded = expandedRecipe === item.id;
+    
+    return (
+      <TouchableOpacity 
+        style={styles.recipeCard}
+        onPress={() => setExpandedRecipe(isExpanded ? null : item.id)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.recipeHeader}>
+          <Text style={styles.recipeName}>{item.name}</Text>
+          <View style={styles.headerRight}>
+            <View style={styles.matchBadge}>
+              <Text style={styles.matchText}>{Math.round(item.matchPercentage)}%</Text>
+            </View>
+            <Text style={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</Text>
+          </View>
         </View>
-      </View>
       
       <Text style={styles.recipeDescription}>{item.description}</Text>
       
@@ -234,12 +245,27 @@ export default function RecipesScreen() {
           </>
         )}
       </View>
-    </View>
-  );
+
+        {isExpanded && item.instructions && item.instructions.length > 0 && (
+          <View style={styles.instructionsSection}>
+            <Text style={styles.sectionTitle}>Istruzioni:</Text>
+            <View style={styles.instructionsList}>
+              {item.instructions.map((instruction: string, index: number) => (
+                <View key={index} style={styles.instructionItem}>
+                  <Text style={styles.instructionNumber}>{index + 1}.</Text>
+                  <Text style={styles.instructionText}>{instruction}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Ricette Consigliate</Text>
+      <Text style={styles.title}>Ricette dal Web</Text>
       
       <View style={styles.filterContainer}>
         <TouchableOpacity
@@ -442,6 +468,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  expandIcon: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: 'bold',
+  },
   recipeName: {
     fontSize: 18,
     fontWeight: '700',
@@ -504,6 +540,30 @@ const styles = StyleSheet.create({
   ingredientText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  instructionsSection: {
+    marginTop: 16,
+  },
+  instructionsList: {
+    marginTop: 8,
+  },
+  instructionItem: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    alignItems: 'flex-start',
+  },
+  instructionNumber: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginRight: 8,
+    minWidth: 20,
+  },
+  instructionText: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+    lineHeight: 20,
   },
   // Stili per loading e errori
   loadingContainer: {

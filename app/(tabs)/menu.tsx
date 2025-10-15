@@ -22,10 +22,12 @@ export default function MenuScreen() {
   const { data: fridgeData } = useStorage<any[]>('fridge', []);
   const { data: freezerData } = useStorage<any[]>('freezer', []);
   const { data: pantryData } = useStorage<any[]>('pantry', []);
+  const { data: myRecipes } = useStorage<any[]>('my-recipes', []);
 
   const [editing, setEditing] = useState<{ day: string; field: keyof MenuDay } | null>(null);
   const [tempValue, setTempValue] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showUnifiedTab, setShowUnifiedTab] = useState(false);
 
   // Calcola il nome del giorno odierno in italiano (array inizia da Lunedì)
   const todayName = useMemo(() => {
@@ -52,12 +54,13 @@ export default function MenuScreen() {
       locationColor: '#9C27B0'
     }));
     return [...fridgeProducts, ...freezerProducts, ...pantryProducts];
-  }, [fridgeData, freezerData, pantryData]);
+  }, [fridgeData, freezerData, pantryData, myRecipes]);
 
   const startEdit = (day: string, field: keyof MenuDay, current?: string) => {
     setEditing({ day, field });
     setTempValue(current ?? '');
     setShowSuggestions(true);
+    setShowUnifiedTab(true);
   };
 
   const saveEdit = () => {
@@ -70,11 +73,30 @@ export default function MenuScreen() {
     setEditing(null);
     setTempValue('');
     setShowSuggestions(false);
+    setShowUnifiedTab(false);
   };
 
   const selectProduct = (product: any) => {
-    setTempValue(product.name);
+    // Se il campo è vuoto, aggiungi il prodotto
+    if (tempValue.trim() === '') {
+      setTempValue(product.name);
+    } else {
+      // Se il campo ha già contenuto, aggiungi il prodotto con una virgola
+      setTempValue(prev => prev + ', ' + product.name);
+    }
     setShowSuggestions(false);
+    // Non nascondere la tab, mantienila visibile per aggiungere altri prodotti
+  };
+
+  const removeLastProduct = () => {
+    const products = tempValue.split(', ');
+    if (products.length > 1) {
+      // Rimuovi l'ultimo prodotto
+      setTempValue(products.slice(0, -1).join(', '));
+    } else {
+      // Se c'è solo un prodotto, svuota il campo
+      setTempValue('');
+    }
   };
 
   const handleTextChange = (text: string) => {
@@ -142,53 +164,102 @@ export default function MenuScreen() {
         })}
         </ScrollView>
 
-        {editing && (
+        {editing && showUnifiedTab && (
           <View style={styles.editBar}>
-            <TextInput
-              style={styles.input}
-              placeholder="Inserisci piatto / ricetta"
-              value={tempValue}
-              onChangeText={handleTextChange}
-              returnKeyType="done"
-              onSubmitEditing={saveEdit}
-            />
-            <TouchableOpacity onPress={() => { setEditing(null); setTempValue(''); }} style={[styles.actionBtn, styles.cancel]}>
-              <Text style={styles.actionText}>Annulla</Text>
-            </TouchableOpacity>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Inserisci piatto / ricetta"
+                value={tempValue}
+                onChangeText={handleTextChange}
+                returnKeyType="done"
+                onSubmitEditing={saveEdit}
+              />
+              {tempValue.trim() && (
+                <TouchableOpacity onPress={removeLastProduct} style={styles.removeButton}>
+                  <Text style={styles.removeButtonText}>⌫</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             <TouchableOpacity onPress={saveEdit} style={[styles.actionBtn, styles.save]}>
               <Text style={[styles.actionText, styles.saveText]}>Salva</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Barra orizzontale prodotti */}
-        {editing && allProducts.length > 0 && (
-          <View style={styles.productsContainer}>
-            <Text style={styles.productsTitle}>I tuoi prodotti:</Text>
-            <FlatList
-              data={allProducts}
-              keyExtractor={(item, index) => `${item.name}-${index}`}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.productCard, { borderLeftColor: item.locationColor }]}
-                  onPress={() => selectProduct(item)}
-                >
-                  <Text style={styles.productName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.productCategory} numberOfLines={1}>
-                    {item.category}
-                  </Text>
-                  <View style={styles.productLocation}>
-                    <View style={[styles.locationDot, { backgroundColor: item.locationColor }]} />
-                    <Text style={styles.locationText}>{item.location}</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.productsList}
-            />
+        {/* Overlay per nascondere la tab quando si clicca fuori */}
+        {editing && showUnifiedTab && (
+          <TouchableOpacity
+            style={styles.overlay}
+            activeOpacity={1}
+            onPress={() => setShowUnifiedTab(false)}
+          />
+        )}
+
+        {/* Tab unificata con prodotti e ricette */}
+        {editing && showUnifiedTab && (allProducts.length > 0 || myRecipes.length > 0) && (
+          <View style={styles.unifiedContainer}>
+            {/* Prima riga: Prodotti */}
+            {allProducts.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>I tuoi prodotti:</Text>
+                <FlatList
+                  data={allProducts}
+                  keyExtractor={(item, index) => `${item.name}-${index}`}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[styles.unifiedCard, { borderLeftColor: item.locationColor }]}
+                      onPress={() => selectProduct(item)}
+                    >
+                      <Text style={styles.unifiedCardName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.unifiedCardCategory} numberOfLines={1}>
+                        {item.category}
+                      </Text>
+                      <View style={styles.unifiedCardLocation}>
+                        <View style={[styles.unifiedLocationDot, { backgroundColor: item.locationColor }]} />
+                        <Text style={styles.unifiedLocationText}>{item.location}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.unifiedList}
+                />
+              </View>
+            )}
+
+            {/* Seconda riga: Ricette */}
+            {myRecipes.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Le tue ricette:</Text>
+                <FlatList
+                  data={myRecipes}
+                  keyExtractor={(item, index) => `${item.id}-${index}`}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[styles.unifiedCard, { borderLeftColor: '#9C27B0' }]}
+                      onPress={() => selectProduct({ name: item.name, category: item.category, location: 'Ricetta' })}
+                    >
+                      <Text style={styles.unifiedCardName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.unifiedCardCategory} numberOfLines={1}>
+                        {item.category}
+                      </Text>
+                      <View style={styles.unifiedCardLocation}>
+                        <View style={[styles.unifiedLocationDot, { backgroundColor: '#9C27B0' }]} />
+                        <Text style={styles.unifiedLocationText}>Ricetta</Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.unifiedList}
+                />
+              </View>
+            )}
           </View>
         )}
       </SafeAreaView>
@@ -248,6 +319,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 10, elevation: 4,
   },
+  inputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginRight: 12,
+  },
   input: {
     flex: 1,
     backgroundColor: 'white',
@@ -255,10 +333,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginRight: 8,
+  },
+  removeButton: {
+    backgroundColor: '#ff4444',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    minWidth: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   actionBtn: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8 },
-  cancel: { backgroundColor: 'white', marginRight: 8 },
   save: { backgroundColor: '#054a80' },
   actionText: { fontWeight: '700', color: '#054a80' },
   saveText: { color: 'white', fontWeight: '700' },
@@ -328,6 +418,148 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#666',
     fontWeight: '500',
+  },
+  // Stili per la barra orizzontale ricette
+  recipesContainer: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 200,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 12,
+    maxHeight: 140,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  recipesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  recipesList: {
+    paddingBottom: 4,
+  },
+  recipeCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    marginRight: 8,
+    minWidth: 120,
+    borderLeftWidth: 3,
+    borderLeftColor: '#9C27B0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  recipeName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  recipeCategory: {
+    fontSize: 11,
+    color: '#666',
+    marginBottom: 6,
+  },
+  recipeLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  recipeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#9C27B0',
+  },
+  recipeLocationText: {
+    fontSize: 10,
+    color: '#666',
+    marginLeft: 4,
+  },
+  // Stili per il container unificato
+  unifiedContainer: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 80,
+    backgroundColor: '#0b67b2',
+    borderRadius: 12,
+    padding: 12,
+    maxHeight: 280,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 2,
+  },
+  section: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  unifiedList: {
+    paddingBottom: 4,
+  },
+  unifiedCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    marginRight: 8,
+    minWidth: 100,
+    borderLeftWidth: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  unifiedCardName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  unifiedCardCategory: {
+    fontSize: 11,
+    color: '#666',
+    marginBottom: 6,
+  },
+  unifiedCardLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  unifiedLocationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  unifiedLocationText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 80, // Esclude la zona della editBar (circa 80px dal basso)
+    backgroundColor: 'transparent',
+    zIndex: 1,
   },
 });
 

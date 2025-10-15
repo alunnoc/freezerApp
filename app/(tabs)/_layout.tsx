@@ -13,6 +13,15 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
+        tabBarStyle: {
+          justifyContent: 'space-around',
+          alignItems: 'center',
+        },
+        tabBarItemStyle: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
       }}>
       <Tabs.Screen
         name="index"
@@ -29,9 +38,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="my-recipes"
+        options={{
+          title: 'Le mie ricette',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="book.closed.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="recipes"
         options={{
-          title: 'Ricette',
+          title: 'Ricetta dal web',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="book.fill" color={color} />,
         }}
       />
