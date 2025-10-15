@@ -30,18 +30,23 @@ const FALLBACK_RECIPES: Recipe[] = [
 export default function RecipesScreen() {
   const { data: fridgeData } = useStorage<any[]>('fridge', []);
   const { data: freezerData } = useStorage<any[]>('freezer', []);
+  const { data: pantryData } = useStorage<any[]>('pantry', []);
   
   const [selectedCategory, setSelectedCategory] = useState<string>('Tutte');
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterEnabled, setFilterEnabled] = useState(true); // Filtro 70% attivo di default
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreRecipes, setHasMoreRecipes] = useState(true);
+  const [categoryExhausted, setCategoryExhausted] = useState(false);
+  const [categoryOffset, setCategoryOffset] = useState<Record<string, number>>({});
   
   // Combina tutti i prodotti disponibili
   const availableProducts = useMemo(() => {
-    const allProducts = [...(fridgeData || []), ...(freezerData || [])];
+    const allProducts = [...(fridgeData || []), ...(freezerData || []), ...(pantryData || [])];
     return allProducts.map(product => product.name?.toLowerCase() || '');
-  }, [fridgeData, freezerData]);
+  }, [fridgeData, freezerData, pantryData]);
 
   // Carica ricette all'avvio
   useEffect(() => {
@@ -56,6 +61,7 @@ export default function RecipesScreen() {
       // Carica ricette casuali come default
       const randomRecipes = await getRandomRecipes(10);
       setRecipes(randomRecipes);
+      setCategoryOffset(prev => ({ ...prev, 'Tutte': 10 }));
     } catch (err) {
       console.error('Errore nel caricamento ricette:', err);
       setError('Errore nel caricamento delle ricette');
@@ -69,12 +75,15 @@ export default function RecipesScreen() {
   const loadRecipesByCategory = async (category: string) => {
     if (category === 'Tutte') {
       loadRecipes();
+      setCategoryExhausted(false);
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
+      setCategoryExhausted(false);
+      setCategoryOffset(prev => ({ ...prev, [category]: 0 }));
       
       // Trova la categoria inglese corrispondente
       const englishCategory = Object.keys(CATEGORY_TRANSLATIONS).find(
@@ -82,7 +91,7 @@ export default function RecipesScreen() {
       ) || category;
       
       console.log('Cercando ricette per categoria:', englishCategory);
-      const categoryRecipes = await searchRecipesByCategory(englishCategory);
+      const categoryRecipes = await searchRecipesByCategory(englishCategory, 0, 10);
       console.log('Ricette trovate:', categoryRecipes.length);
       
       if (categoryRecipes.length === 0) {
@@ -90,8 +99,11 @@ export default function RecipesScreen() {
         console.log('Nessuna ricetta trovata per categoria, caricando ricette casuali...');
         const randomRecipes = await getRandomRecipes(10);
         setRecipes(randomRecipes);
+        setCategoryOffset(prev => ({ ...prev, [category]: 0 }));
       } else {
+        // Mostra solo le ricette della categoria selezionata
         setRecipes(categoryRecipes);
+        setCategoryOffset(prev => ({ ...prev, [category]: 10 }));
       }
     } catch (err) {
       console.error('Errore nel caricamento ricette per categoria:', err);
@@ -99,6 +111,67 @@ export default function RecipesScreen() {
       setRecipes(FALLBACK_RECIPES);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Carica più ricette
+  const loadMoreRecipes = async () => {
+    if (loadingMore || !hasMoreRecipes) return;
+    
+    try {
+      setLoadingMore(true);
+      
+      if (selectedCategory === 'Tutte') {
+        // Carica altre ricette casuali
+        const moreRecipes = await getRandomRecipes(5);
+        // Filtra le ricette duplicate
+        const existingIds = recipes.map(r => r.id);
+        const newRecipes = moreRecipes.filter(r => !existingIds.includes(r.id));
+        setRecipes(prev => [...prev, ...newRecipes]);
+        
+        // Aggiorna l'offset per la categoria "Tutte"
+        setCategoryOffset(prev => ({ 
+          ...prev, 
+          'Tutte': (prev['Tutte'] || 0) + newRecipes.length 
+        }));
+      } else {
+        // Per le categorie specifiche, prova a caricare altre ricette della categoria
+        try {
+          const englishCategory = Object.keys(CATEGORY_TRANSLATIONS).find(
+            key => CATEGORY_TRANSLATIONS[key] === selectedCategory
+          ) || selectedCategory;
+          
+          // Ottieni l'offset corrente per questa categoria
+          const currentOffset = categoryOffset[selectedCategory] || 0;
+          
+          // Carica altre ricette della categoria con offset corretto
+          const moreCategoryRecipes = await searchRecipesByCategory(englishCategory, currentOffset, 10);
+          
+          if (moreCategoryRecipes.length > 0) {
+            // Filtra le ricette duplicate
+            const existingIds = recipes.map(r => r.id);
+            const newRecipes = moreCategoryRecipes.filter(r => !existingIds.includes(r.id));
+            setRecipes(prev => [...prev, ...newRecipes]);
+            
+            // Aggiorna l'offset per questa categoria
+            setCategoryOffset(prev => ({ 
+              ...prev, 
+              [selectedCategory]: currentOffset + newRecipes.length 
+            }));
+          } else {
+            // Se non ci sono più ricette per questa categoria, non aggiungere nulla
+            console.log('Nessuna altra ricetta disponibile per questa categoria');
+            setCategoryExhausted(true);
+          }
+        } catch (categoryError) {
+          console.log('Errore nel caricamento categoria:', categoryError);
+          // Non aggiungere ricette casuali per categorie specifiche
+        }
+      }
+    } catch (err) {
+      console.error('Errore nel caricamento di altre ricette:', err);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -240,13 +313,28 @@ export default function RecipesScreen() {
             </Text>
           </View>
         ) : (
-          <FlatList
-            data={suggestedRecipes}
-            keyExtractor={(item) => item.id}
-            renderItem={renderRecipe}
-            contentContainerStyle={styles.recipesList}
-            showsVerticalScrollIndicator={false}
-          />
+          <>
+            <FlatList
+              data={suggestedRecipes}
+              keyExtractor={(item, index) => `${item.id}-${index}`}
+              renderItem={renderRecipe}
+              contentContainerStyle={styles.recipesList}
+              showsVerticalScrollIndicator={false}
+            />
+            {suggestedRecipes.length > 0 && !categoryExhausted && (
+              <TouchableOpacity
+                style={[styles.loadMoreButton, loadingMore && styles.loadMoreButtonDisabled]}
+                onPress={loadMoreRecipes}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.loadMoreButtonText}>Carica altre ricette</Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </View>
     </SafeAreaView>
@@ -474,5 +562,22 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  loadMoreButton: {
+    backgroundColor: '#0b67b2',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 16,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  loadMoreButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  loadMoreButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

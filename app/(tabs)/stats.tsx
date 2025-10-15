@@ -25,15 +25,17 @@ const CATEGORIES = [
 export default function Stats() {
   const { data: fridge, loading: fridgeLoading } = useStorage<Item[]>("fridge", []);
   const { data: freezer, loading: freezerLoading } = useStorage<Item[]>("freezer", []);
+  const { data: pantry, loading: pantryLoading } = useStorage<Item[]>("pantry", []);
   const [showExportOptions, setShowExportOptions] = useState(false);
 
-  const allItems = [...fridge, ...freezer];
+  const allItems = [...fridge, ...freezer, ...pantry];
   
   // Debug: log the data to see what's happening
   console.log('Stats - Fridge data:', fridge);
   console.log('Stats - Freezer data:', freezer);
+  console.log('Stats - Pantry data:', pantry);
   console.log('Stats - All items:', allItems);
-  console.log('Stats - Loading states:', { fridgeLoading, freezerLoading });
+  console.log('Stats - Loading states:', { fridgeLoading, freezerLoading, pantryLoading });
 
   const handleExport = async (format: 'json' | 'csv' | 'summary') => {
     try {
@@ -42,15 +44,15 @@ export default function Stats() {
 
       switch (format) {
         case 'json':
-          content = exportToJSON(fridge, freezer);
+          content = exportToJSON(fridge, freezer, pantry);
           filename = `frigo-backup-${new Date().toISOString().split('T')[0]}.json`;
           break;
         case 'csv':
-          content = exportToCSV(fridge, freezer);
+          content = exportToCSV(fridge, freezer, pantry);
           filename = `frigo-dati-${new Date().toISOString().split('T')[0]}.csv`;
           break;
         case 'summary':
-          content = generateSummary(fridge, freezer);
+          content = generateSummary(fridge, freezer, pantry);
           filename = `frigo-riepilogo-${new Date().toISOString().split('T')[0]}.txt`;
           break;
       }
@@ -201,7 +203,7 @@ export default function Stats() {
             <StatCard
               title="Totale Prodotti"
               value={allItems.length}
-              subtitle="nel frigo e freezer"
+              subtitle="nel frigo, freezer e credenza"
               color="#4caf50"
             />
             <StatCard
@@ -215,6 +217,12 @@ export default function Stats() {
               value={freezer.length}
               subtitle="prodotti"
               color="#00bcd4"
+            />
+            <StatCard
+              title="Credenza"
+              value={pantry.length}
+              subtitle="prodotti"
+              color="#9c27b0"
             />
             <StatCard
               title="Con Scadenza"

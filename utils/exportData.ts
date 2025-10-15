@@ -3,14 +3,16 @@ import { Item } from '../hooks/useStorage';
 export interface ExportData {
   fridge: Item[];
   freezer: Item[];
+  pantry: Item[];
   exportDate: string;
   version: string;
 }
 
-export const exportToJSON = (fridge: Item[], freezer: Item[]): string => {
+export const exportToJSON = (fridge: Item[], freezer: Item[], pantry: Item[]): string => {
   const exportData: ExportData = {
     fridge,
     freezer,
+    pantry,
     exportDate: new Date().toISOString(),
     version: "1.0.0",
   };
@@ -18,10 +20,11 @@ export const exportToJSON = (fridge: Item[], freezer: Item[]): string => {
   return JSON.stringify(exportData, null, 2);
 };
 
-export const exportToCSV = (fridge: Item[], freezer: Item[]): string => {
+export const exportToCSV = (fridge: Item[], freezer: Item[], pantry: Item[]): string => {
   const allItems = [
     ...fridge.map(item => ({ ...item, section: 'Frigo' })),
-    ...freezer.map(item => ({ ...item, section: 'Freezer' }))
+    ...freezer.map(item => ({ ...item, section: 'Freezer' })),
+    ...pantry.map(item => ({ ...item, section: 'Credenza' }))
   ];
 
   const headers = ['Sezione', 'Nome', 'Quantità', 'Unità', 'Categoria', 'Data Scadenza'];
@@ -42,8 +45,8 @@ export const exportToCSV = (fridge: Item[], freezer: Item[]): string => {
   return csvRows.join('\n');
 };
 
-export const generateSummary = (fridge: Item[], freezer: Item[]): string => {
-  const allItems = [...fridge, ...freezer];
+export const generateSummary = (fridge: Item[], freezer: Item[], pantry: Item[]): string => {
+  const allItems = [...fridge, ...freezer, ...pantry];
   const totalItems = allItems.length;
   const totalQuantity = allItems.reduce((sum, item) => sum + item.qty, 0);
   
@@ -62,8 +65,8 @@ export const generateSummary = (fridge: Item[], freezer: Item[]): string => {
     return diffDays >= 0 && diffDays <= 7;
   });
 
-  let summary = `RIEPILOGO FRIGO E FREEZER\n`;
-  summary += `========================\n\n`;
+  let summary = `RIEPILOGO FRIGO, FREEZER E CREDENZA\n`;
+  summary += `==================================\n\n`;
   summary += `Data: ${new Date().toLocaleDateString('it-IT')}\n`;
   summary += `Totale prodotti: ${totalItems}\n`;
   summary += `Totale quantità: ${totalQuantity}\n\n`;
@@ -79,6 +82,7 @@ export const generateSummary = (fridge: Item[], freezer: Item[]): string => {
   summary += `\nSEZIONI:\n`;
   summary += `- Frigo: ${fridge.length} prodotti\n`;
   summary += `- Freezer: ${freezer.length} prodotti\n`;
+  summary += `- Credenza: ${pantry.length} prodotti\n`;
 
   return summary;
 };

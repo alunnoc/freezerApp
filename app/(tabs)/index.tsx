@@ -19,7 +19,7 @@ import { OfficialCameraScanner } from "../../components/OfficialCameraScanner";
 import { Item, useStorage } from "../../hooks/useStorage";
 import { lookupProduct } from "../../utils/productLookup";
 
-type SectionKey = "fridge" | "freezer";
+type SectionKey = "fridge" | "freezer" | "pantry";
 
 const CATEGORIES = [
   { id: "dairy", name: "Latticini", color: "#fff3e0", icon: "🥛" },
@@ -52,6 +52,10 @@ export default function Home() {
     { id: "3", name: "Piselli surgelati", qty: 1, unit: "busta", category: "frozen" },
     { id: "4", name: "Filetti di merluzzo", qty: 6, unit: "pz", category: "fish" },
   ]);
+  const { data: pantry, saveData: savePantry, loading: pantryLoading } = useStorage<Item[]>("pantry", [
+    { id: "5", name: "Pasta", qty: 2, unit: "kg", category: "other" },
+    { id: "6", name: "Riso", qty: 1, unit: "kg", category: "other" },
+  ]);
 
   // form di aggiunta
   const [nameInput, setNameInput] = useState("");
@@ -59,12 +63,18 @@ export default function Home() {
   const [unitInput, setUnitInput] = useState("pz");
   const [expiryDate, setExpiryDate] = useState("");
 
-  const getList = (s: SectionKey) => (s === "fridge" ? fridge : freezer);
+  const getList = (s: SectionKey) => {
+    if (s === "fridge") return fridge;
+    if (s === "freezer") return freezer;
+    return pantry;
+  };
   const setList = (s: SectionKey, items: Item[]) => {
     if (s === "fridge") {
       saveFridge(items);
-    } else {
+    } else if (s === "freezer") {
       saveFreezer(items);
+    } else {
+      savePantry(items);
     }
   };
 
@@ -305,8 +315,8 @@ export default function Home() {
   };
 
   if (section) {
-    const data = section === "fridge" ? fridge : freezer;
-    const loading = section === "fridge" ? fridgeLoading : freezerLoading;
+    const data = section === "fridge" ? fridge : section === "freezer" ? freezer : pantry;
+    const loading = section === "fridge" ? fridgeLoading : section === "freezer" ? freezerLoading : pantryLoading;
     const filteredData = filterItems(data);
     
     if (loading) {
@@ -328,7 +338,9 @@ export default function Home() {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <SafeAreaView style={styles.container}>
             <View style={styles.headerSection}>
-          <Text style={styles.title}>{section === "fridge" ? "Frigo" : "Freezer"}</Text>
+          <Text style={styles.title}>
+            {section === "fridge" ? "Frigo" : section === "freezer" ? "Freezer" : "Credenza"}
+          </Text>
 
           {/* Barra di ricerca */}
           <View style={styles.searchContainer}>
@@ -599,23 +611,31 @@ export default function Home() {
     );
   }
 
-  // Home con i due pulsanti (Frigo sopra, Freezer sotto)
+  // Home con i tre pulsanti (Frigo, Freezer, Credenza)
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.homeContent}>
         <Text style={styles.title}>What's in the</Text>
-        <View style={styles.fridgeBox}>
+        <View style={styles.sectionsContainer}>
+          <View style={styles.fridgeBox}>
+            <TouchableOpacity
+              style={[styles.section, styles.fridge]}
+              onPress={() => setSection("fridge")}
+            >
+              <Text style={styles.sectionText}>🧊 Fridge</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.section, styles.freezer]}
+              onPress={() => setSection("freezer")}
+            >
+              <Text style={styles.sectionText}>❄️ Freezer</Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
-            style={[styles.section, styles.fridge]}
-            onPress={() => setSection("fridge")}
+            style={[styles.section, styles.pantry]}
+            onPress={() => setSection("pantry")}
           >
-            <Text style={styles.sectionText}>🧊 Fridge</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.section, styles.freezer]}
-            onPress={() => setSection("freezer")}
-          >
-            <Text style={styles.sectionText}>❄️ Freezer</Text>
+            <Text style={styles.sectionText}>🏠 Pantry</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -650,6 +670,11 @@ const styles = StyleSheet.create({
     color: "#666",
     fontWeight: "500",
   },
+  sectionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
   fridgeBox: {
     width: 220,
     height: 400,
@@ -657,6 +682,16 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     borderRadius: 20,
     overflow: "hidden",
+  },
+  pantry: {
+    width: 120,
+    height: 400,
+    backgroundColor: "#f3e5f5",
+    borderWidth: 3,
+    borderColor: "#ccc",
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
   section: { 
     justifyContent: "center", 

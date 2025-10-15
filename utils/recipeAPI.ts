@@ -16,15 +16,15 @@ export interface Recipe {
 }
 
 // Cerca ricette per categoria
-export async function searchRecipesByCategory(category: string): Promise<Recipe[]> {
+export async function searchRecipesByCategory(category: string, offset: number = 0, limit: number = 10): Promise<Recipe[]> {
   try {
     const response = await fetch(`${API_BASE_URL}/filter.php?c=${encodeURIComponent(category)}`);
     const data = await response.json();
     
     if (!data.meals) return [];
     
-    // Prendi solo le prime 10 ricette per evitare troppe chiamate
-    const limitedMeals = data.meals.slice(0, 10);
+    // Prendi le ricette con offset e limit
+    const limitedMeals = data.meals.slice(offset, offset + limit);
     
     // Per ogni ricetta, ottieni i dettagli completi
     const detailedRecipes = await Promise.all(

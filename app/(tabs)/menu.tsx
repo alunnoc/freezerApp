@@ -18,9 +18,10 @@ export default function MenuScreen() {
   const defaultMenu: WeeklyMenu = useMemo(() => Object.fromEntries(WEEK_DAYS.map(d => [d, {} as MenuDay])), []);
   const { data: menu, saveData: saveMenu } = useStorage<WeeklyMenu>('weeklyMenu', defaultMenu);
   
-  // Accesso ai dati del frigo e freezer per i suggerimenti
+  // Accesso ai dati del frigo, freezer e credenza per i suggerimenti
   const { data: fridgeData } = useStorage<any[]>('fridge', []);
   const { data: freezerData } = useStorage<any[]>('freezer', []);
+  const { data: pantryData } = useStorage<any[]>('pantry', []);
 
   const [editing, setEditing] = useState<{ day: string; field: keyof MenuDay } | null>(null);
   const [tempValue, setTempValue] = useState('');
@@ -45,8 +46,13 @@ export default function MenuScreen() {
       location: 'Freezer',
       locationColor: '#2196F3'
     }));
-    return [...fridgeProducts, ...freezerProducts];
-  }, [fridgeData, freezerData]);
+    const pantryProducts = (pantryData || []).map(product => ({
+      ...product,
+      location: 'Credenza',
+      locationColor: '#9C27B0'
+    }));
+    return [...fridgeProducts, ...freezerProducts, ...pantryProducts];
+  }, [fridgeData, freezerData, pantryData]);
 
   const startEdit = (day: string, field: keyof MenuDay, current?: string) => {
     setEditing({ day, field });
