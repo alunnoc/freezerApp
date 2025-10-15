@@ -22,6 +22,7 @@ const MAPPING = {
   'chart.line.uptrend.xyaxis': 'trending-up',
   'list.bullet.rectangle.fill': 'list',
   'chart.bar.fill': 'bar-chart',
+  'book.fill': 'menu-book',
 } as IconMapping;
 
 /**

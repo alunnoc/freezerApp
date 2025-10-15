@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useStorage } from '../../hooks/useStorage';
 
 type MenuDay = {
@@ -17,9 +17,14 @@ const WEEK_DAYS = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Saba
 export default function MenuScreen() {
   const defaultMenu: WeeklyMenu = useMemo(() => Object.fromEntries(WEEK_DAYS.map(d => [d, {} as MenuDay])), []);
   const { data: menu, saveData: saveMenu } = useStorage<WeeklyMenu>('weeklyMenu', defaultMenu);
+  
+  // Accesso ai dati del frigo e freezer per i suggerimenti
+  const { data: fridgeData } = useStorage<any[]>('fridge', []);
+  const { data: freezerData } = useStorage<any[]>('freezer', []);
 
   const [editing, setEditing] = useState<{ day: string; field: keyof MenuDay } | null>(null);
   const [tempValue, setTempValue] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Calcola il nome del giorno odierno in italiano (array inizia da Lunedì)
   const todayName = useMemo(() => {
@@ -28,9 +33,25 @@ export default function MenuScreen() {
     return WEEK_DAYS[idx];
   }, []);
 
+  // Lista di tutti i prodotti per la barra orizzontale
+  const allProducts = useMemo(() => {
+    const fridgeProducts = (fridgeData || []).map(product => ({
+      ...product,
+      location: 'Frigo',
+      locationColor: '#4CAF50'
+    }));
+    const freezerProducts = (freezerData || []).map(product => ({
+      ...product,
+      location: 'Freezer',
+      locationColor: '#2196F3'
+    }));
+    return [...fridgeProducts, ...freezerProducts];
+  }, [fridgeData, freezerData]);
+
   const startEdit = (day: string, field: keyof MenuDay, current?: string) => {
     setEditing({ day, field });
     setTempValue(current ?? '');
+    setShowSuggestions(true);
   };
 
   const saveEdit = () => {
@@ -42,6 +63,17 @@ export default function MenuScreen() {
     saveMenu(next);
     setEditing(null);
     setTempValue('');
+    setShowSuggestions(false);
+  };
+
+  const selectProduct = (product: any) => {
+    setTempValue(product.name);
+    setShowSuggestions(false);
+  };
+
+  const handleTextChange = (text: string) => {
+    setTempValue(text);
+    setShowSuggestions(text.trim().length > 0);
   };
 
   const clearDay = (day: string) => {
@@ -110,7 +142,7 @@ export default function MenuScreen() {
               style={styles.input}
               placeholder="Inserisci piatto / ricetta"
               value={tempValue}
-              onChangeText={setTempValue}
+              onChangeText={handleTextChange}
               returnKeyType="done"
               onSubmitEditing={saveEdit}
             />
@@ -120,6 +152,37 @@ export default function MenuScreen() {
             <TouchableOpacity onPress={saveEdit} style={[styles.actionBtn, styles.save]}>
               <Text style={[styles.actionText, styles.saveText]}>Salva</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Barra orizzontale prodotti */}
+        {editing && allProducts.length > 0 && (
+          <View style={styles.productsContainer}>
+            <Text style={styles.productsTitle}>I tuoi prodotti:</Text>
+            <FlatList
+              data={allProducts}
+              keyExtractor={(item, index) => `${item.name}-${index}`}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.productCard, { borderLeftColor: item.locationColor }]}
+                  onPress={() => selectProduct(item)}
+                >
+                  <Text style={styles.productName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.productCategory} numberOfLines={1}>
+                    {item.category}
+                  </Text>
+                  <View style={styles.productLocation}>
+                    <View style={[styles.locationDot, { backgroundColor: item.locationColor }]} />
+                    <Text style={styles.locationText}>{item.location}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.productsList}
+            />
           </View>
         )}
       </SafeAreaView>
@@ -193,6 +256,73 @@ const styles = StyleSheet.create({
   save: { backgroundColor: '#054a80' },
   actionText: { fontWeight: '700', color: '#054a80' },
   saveText: { color: 'white', fontWeight: '700' },
+  // Stili per la barra orizzontale prodotti
+  productsContainer: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 80,
+    backgroundColor: '#0b67b2',
+    borderRadius: 14,
+    maxHeight: 140,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  productsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+    padding: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  productsList: {
+    paddingHorizontal: 8,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  productCard: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 10,
+    marginHorizontal: 4,
+    width: 120,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  productName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  productCategory: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 6,
+    fontStyle: 'italic',
+  },
+  productLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  locationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  locationText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
+  },
 });
 
 
