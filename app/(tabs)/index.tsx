@@ -3,16 +3,12 @@ import React, { useState } from "react";
 import {
   Alert,
   FlatList,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { OfficialCameraScanner } from "../../components/OfficialCameraScanner";
@@ -331,13 +327,7 @@ export default function Home() {
     }
     
     return (
-      <KeyboardAvoidingView 
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container}>
             <View style={styles.headerSection}>
           <Text style={styles.title}>
             {section === "fridge" ? "Frigo" : section === "freezer" ? "Freezer" : "Credenza"}
@@ -609,9 +599,7 @@ export default function Home() {
         >
           <Text style={styles.backFabIcon}>← Indietro</Text>
         </TouchableOpacity>
-          </SafeAreaView>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
+      </SafeAreaView>
     );
   }
 
@@ -902,21 +890,27 @@ const styles = StyleSheet.create({
 
   addFormContainer: {
     position: "absolute",
-    bottom: 70,
-    left: 20,
-    right: 20,
-    maxHeight: "70%",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-start",
+    alignItems: "center",
+    paddingTop: 50,
+    zIndex: 1000,
   },
   addCard: {
     backgroundColor: "white",
     borderRadius: 16,
-    padding: 12,
+    padding: 20,
+    marginHorizontal: 20,
+    width: "90%",
+    minHeight: 400,
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 4,
-    maxHeight: "100%",
-    minHeight: 200,
   },
   formScrollView: {
     flex: 1,
