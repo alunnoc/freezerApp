@@ -8,7 +8,7 @@ export interface IngredientMatch {
 // Ingredienti comuni sempre disponibili (non stanno nel frigo)
 const COMMON_INGREDIENTS = [
   'aglio', 'garlic', 'spicchio d\'aglio',
-  'olio', 'olio d\'oliva', 'olive oil', 'olio extravergine',
+  'olio', 'olio d\'oliva', 'olive oil', 'olio extravergine', 'olio extra vergine', 'olio di oliva', 'oil',
   'sale', 'salt', 'sale fino', 'sale grosso',
   'pepe', 'pepper', 'pepe nero', 'black pepper',
   'acqua', 'water', 'acqua fredda', 'acqua calda',
@@ -44,7 +44,8 @@ const COMMON_INGREDIENTS = [
   'brodo', 'broth', 'brodo vegetale', 'brodo di carne',
   'dado', 'stock cube', 'dado vegetale',
   'concentrato di pomodoro', 'tomato paste', 'doppio concentrato',
-  'capperi', 'capers', 'capperi sotto sale'
+  'capperi', 'capers', 'capperi sotto sale',
+  'uova', 'egg', 'eggs', 'uovo', 'yolk', 'tuorlo', 'albume', 'white'
 ];
 
 // Database di sinonimi e traduzioni
@@ -138,7 +139,7 @@ const INGREDIENT_SYNONYMS: Record<string, string[]> = {
   'timo': ['thyme', 'timo fresco'],
   'pepe': ['pepper', 'pepe nero'],
   'sale': ['salt', 'sale grosso'],
-  'olio': ['oil', 'olio d\'oliva', 'olio extravergine'],
+  'olio': ['oil', 'olio d\'oliva', 'olio extravergine', 'olio extra vergine', 'olio di oliva', 'olive oil'],
   'aceto': ['vinegar', 'aceto balsamico'],
   
   // Funghi
@@ -157,7 +158,7 @@ const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 
 // Funzione per normalizzare un ingrediente
 function normalizeIngredient(ingredient: string): string {
-  return ingredient
+  let normalized = ingredient
     .toLowerCase()
     .trim()
     .replace(/[^\w\s]/g, '') // Rimuove punteggiatura
@@ -165,6 +166,16 @@ function normalizeIngredient(ingredient: string): string {
     .replace(/^\d+\s*(kg|g|ml|l|oz|lb|cup|tsp|tbsp|tablespoon|teaspoon)\s*/g, '') // Rimuove quantità
     .replace(/^\d+\s*/g, '') // Rimuove numeri all'inizio
     .trim();
+  
+  // Estrae solo la parola chiave principale per ingredienti comuni
+  const commonKeywords = ['salt', 'sale', 'oil', 'olio', 'pepper', 'pepe', 'garlic', 'aglio', 'water', 'acqua', 'egg', 'uova', 'yolk', 'tuorlo'];
+  for (const keyword of commonKeywords) {
+    if (normalized.includes(keyword)) {
+      return keyword;
+    }
+  }
+  
+  return normalized;
 }
 
 // Funzione per trovare sinonimi
@@ -201,17 +212,11 @@ export function matchIngredients(
   const availableIngredients: string[] = [];
   const missingIngredients: string[] = [];
   
-  console.log('🔍 Matching ingredienti:');
-  console.log('Prodotti disponibili:', availableProducts);
-  console.log('Ingredienti ricetta:', recipeIngredients);
   
   for (const recipeIngredient of recipeIngredients) {
     const normalizedRecipe = normalizeIngredient(recipeIngredient);
     const synonyms = findSynonyms(normalizedRecipe);
     
-    console.log(`\n📝 Ingrediente ricetta: "${recipeIngredient}"`);
-    console.log(`🔧 Normalizzato: "${normalizedRecipe}"`);
-    console.log(`📚 Sinonimi:`, synonyms);
     
     // Controlla se è un ingrediente comune (sempre disponibile)
     const isCommonIngredient = COMMON_INGREDIENTS.some(common => 
@@ -220,7 +225,6 @@ export function matchIngredients(
     );
     
     if (isCommonIngredient) {
-      console.log(`  ✅ Ingrediente comune - sempre disponibile!`);
       availableIngredients.push(recipeIngredient);
       continue;
     }
@@ -232,11 +236,8 @@ export function matchIngredients(
     for (const product of availableProducts) {
       const normalizedProduct = normalizeIngredient(product);
       
-      console.log(`  🛒 Prodotto: "${product}" → "${normalizedProduct}"`);
-      
       // Match esatto
       if (normalizedProduct === normalizedRecipe) {
-        console.log(`  ✅ Match esatto trovato!`);
         availableIngredients.push(recipeIngredient);
         found = true;
         break;
@@ -245,7 +246,6 @@ export function matchIngredients(
       // Match con sinonimi
       for (const synonym of synonyms) {
         if (normalizedProduct === synonym) {
-          console.log(`  ✅ Match con sinonimo: "${synonym}"`);
           availableIngredients.push(recipeIngredient);
           found = true;
           break;

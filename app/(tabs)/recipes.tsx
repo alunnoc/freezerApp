@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useStorage } from '../../hooks/useStorage';
@@ -28,14 +29,31 @@ const FALLBACK_RECIPES: Recipe[] = [
 ];
 
 export default function RecipesScreen() {
-  const { data: fridgeData } = useStorage<any[]>('fridge', []);
-  const { data: freezerData } = useStorage<any[]>('freezer', []);
-  const { data: pantryData } = useStorage<any[]>('pantry', []);
+  const { data: fridgeData, forceReload: forceReloadFridge } = useStorage<any[]>('fridge', []);
+  const { data: freezerData, forceReload: forceReloadFreezer } = useStorage<any[]>('freezer', []);
+  const { data: pantryData, forceReload: forceReloadPantry } = useStorage<any[]>('pantry', []);
   
   const [selectedCategory, setSelectedCategory] = useState<string>('Tutte');
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Forza il ricaricamento quando si torna alla tab
+  useFocusEffect(
+    React.useCallback(() => {
+      const forceReloadAll = async () => {
+        try {
+          await forceReloadFridge();
+          await forceReloadFreezer();
+          await forceReloadPantry();
+        } catch (error) {
+          // Ignora errori di ricaricamento
+        }
+      };
+      
+      forceReloadAll();
+    }, [forceReloadFridge, forceReloadFreezer, forceReloadPantry])
+  );
   const [filterEnabled, setFilterEnabled] = useState(true); // Filtro 70% attivo di default
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreRecipes, setHasMoreRecipes] = useState(true);

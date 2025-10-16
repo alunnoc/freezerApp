@@ -12,7 +12,6 @@ import {
   View,
 } from "react-native";
 import { OfficialCameraScanner } from "../../components/OfficialCameraScanner";
-import { RealGoogleDriveSync } from "../../components/RealGoogleDriveSync";
 import { Item, useStorage } from "../../hooks/useStorage";
 import { lookupProduct } from "../../utils/productLookup";
 
@@ -631,29 +630,6 @@ export default function Home() {
           </TouchableOpacity>
         </View>
         
-        {/* Componente di sincronizzazione Google Drive */}
-        <View style={styles.syncContainer}>
-          <RealGoogleDriveSync 
-            currentFridge={fridge}
-            currentFreezer={freezer}
-            currentPantry={pantry}
-            onSyncComplete={(data) => {
-              // Gestisce i dati sincronizzati
-              console.log('Dati sincronizzati:', data);
-              
-              // Aggiorna i dati locali con quelli sincronizzati
-              if (data.fridge) {
-                saveFridge(data.fridge);
-              }
-              if (data.freezer) {
-                saveFreezer(data.freezer);
-              }
-              if (data.pantry) {
-                savePantry(data.pantry);
-              }
-            }}
-          />
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -722,10 +698,6 @@ const styles = StyleSheet.create({
     flex: 1
   },
   sectionText: { fontSize: 22, fontWeight: "600" },
-  syncContainer: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
 
   empty: { textAlign: "center", color: "#666", marginTop: 12 },
 

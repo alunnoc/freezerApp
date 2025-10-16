@@ -1,17 +1,18 @@
 // Tab per le ricette personali dell'utente
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useStorage } from '../../hooks/useStorage';
 import { matchIngredients } from '../../utils/ingredientMatcher';
@@ -34,14 +35,32 @@ const DIFFICULTY_OPTIONS = ['Facile', 'Medio', 'Difficile'];
 const CATEGORY_OPTIONS = ['Antipasti', 'Primi', 'Secondi', 'Dolci', 'Bevande', 'Altro'];
 
 export default function MyRecipesScreen() {
-  const { data: recipes, saveData: saveRecipes } = useStorage<PersonalRecipe[]>('my-recipes', []);
-  const { data: fridgeData } = useStorage<any[]>('fridge', []);
-  const { data: freezerData } = useStorage<any[]>('freezer', []);
-  const { data: pantryData } = useStorage<any[]>('pantry', []);
+  const { data: recipes, saveData: saveRecipes, forceReload: forceReloadRecipes } = useStorage<PersonalRecipe[]>('my-recipes', []);
+  const { data: fridgeData, forceReload: forceReloadFridge } = useStorage<any[]>('fridge', []);
+  const { data: freezerData, forceReload: forceReloadFreezer } = useStorage<any[]>('freezer', []);
+  const { data: pantryData, forceReload: forceReloadPantry } = useStorage<any[]>('pantry', []);
   
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<PersonalRecipe | null>(null);
   const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null);
+  
+  // Forza il ricaricamento quando si torna alla tab
+  useFocusEffect(
+    React.useCallback(() => {
+      const forceReloadAll = async () => {
+        try {
+          await forceReloadFridge();
+          await forceReloadFreezer();
+          await forceReloadPantry();
+          await forceReloadRecipes();
+        } catch (error) {
+          // Ignora errori di ricaricamento
+        }
+      };
+      
+      forceReloadAll();
+    }, [forceReloadFridge, forceReloadFreezer, forceReloadPantry, forceReloadRecipes])
+  );
   
   // Combina tutti i prodotti disponibili
   const availableProducts = useMemo(() => {
