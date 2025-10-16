@@ -1,4 +1,5 @@
 // app/index.tsx
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useState } from "react";
 import {
   Alert,
@@ -38,6 +39,18 @@ export default function Home() {
   const [editSection, setEditSection] = useState<SectionKey | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
+
+  // Resetta sempre alla home quando si torna alla tab
+  useFocusEffect(
+    React.useCallback(() => {
+      setSection(null);
+      setShowAddForm(false);
+      setEditingItem(null);
+      setShowScanner(false);
+      setSearchQuery("");
+      setFilterCategory(null);
+    }, [])
+  );
 
   // Usa il hook personalizzato per la persistenza
   const { data: fridge, saveData: saveFridge, loading: fridgeLoading } = useStorage<Item[]>("fridge", [
