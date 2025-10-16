@@ -1,11 +1,13 @@
 // app/index.tsx
 import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import React, { useState } from "react";
 import {
   Alert,
   FlatList,
   SafeAreaView,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -14,9 +16,10 @@ import {
 } from "react-native";
 import { OfficialCameraScanner } from "../../components/OfficialCameraScanner";
 import { Item, useStorage } from "../../hooks/useStorage";
+import { exportToCSV, exportToJSON, generateSummary } from "../../utils/exportData";
 import { lookupProduct } from "../../utils/productLookup";
 
-type SectionKey = "fridge" | "freezer" | "pantry";
+type SectionKey = "fridge" | "freezer" | "pantry" | "stats";
 
 const CATEGORIES = [
   { id: "dairy", name: "Latticini", color: "#fff3e0", icon: "🥛" },
@@ -29,6 +32,7 @@ const CATEGORIES = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [section, setSection] = useState<null | SectionKey>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("other");
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,6 +43,37 @@ export default function Home() {
   const [editSection, setEditSection] = useState<SectionKey | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
+
+  // Funzione per gestire l'esportazione
+  const handleExport = async (format: 'json' | 'csv' | 'summary') => {
+    try {
+      let content: string;
+      let filename: string;
+
+      switch (format) {
+        case 'json':
+          content = exportToJSON(fridge, freezer, pantry);
+          filename = `frigo-backup-${new Date().toISOString().split('T')[0]}.json`;
+          break;
+        case 'csv':
+          content = exportToCSV(fridge, freezer, pantry);
+          filename = `frigo-dati-${new Date().toISOString().split('T')[0]}.csv`;
+          break;
+        case 'summary':
+          content = generateSummary(fridge, freezer, pantry);
+          filename = `frigo-riepilogo-${new Date().toISOString().split('T')[0]}.txt`;
+          break;
+      }
+
+      await Share.share({
+        message: content,
+        title: `Backup Frigo - ${filename}`,
+      });
+    } catch (error) {
+      Alert.alert('Errore', 'Impossibile esportare i dati');
+    }
+  };
 
   // Resetta sempre alla home quando si torna alla tab
   useFocusEffect(
@@ -324,6 +359,282 @@ export default function Home() {
   };
 
   if (section) {
+    // Gestione sezione statistiche
+    if (section === "stats") {
+      const allItems = [...fridge, ...freezer, ...pantry];
+      const loading = fridgeLoading || freezerLoading || pantryLoading;
+      
+      const getCategoryStats = () => {
+        const stats = CATEGORIES.map(category => {
+          const items = allItems.filter(item => item.category === category.id);
+          const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
+          return {
+            ...category,
+            count: items.length,
+            totalQty,
+          };
+        });
+        return stats.filter(stat => stat.count > 0);
+      };
+
+      const parseDate = (dateString: string) => {
+        try {
+          // Converte da DD-MM-YYYY a Date
+          const [day, month, year] = dateString.split('-');
+          if (!day || !month || !year) return null;
+          return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        } catch (error) {
+          return null;
+        }
+      };
+
+      const getExpiryStats = () => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const expired = allItems.filter(item => {
+          if (!item.expiryDate) return false;
+          const expiry = parseDate(item.expiryDate);
+          if (!expiry) return false;
+          expiry.setHours(0, 0, 0, 0);
+          return expiry < today;
+        });
+
+        const expiringSoon = allItems.filter(item => {
+          if (!item.expiryDate) return false;
+          const expiry = parseDate(item.expiryDate);
+          if (!expiry) return false;
+          expiry.setHours(0, 0, 0, 0);
+          const diffTime = expiry.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays >= 0 && diffDays <= 3;
+        });
+
+        const expiringThisWeek = allItems.filter(item => {
+          if (!item.expiryDate) return false;
+          const expiry = parseDate(item.expiryDate);
+          if (!expiry) return false;
+          expiry.setHours(0, 0, 0, 0);
+          const diffTime = expiry.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays >= 0 && diffDays <= 7;
+        });
+
+        return {
+          expired: expired.length,
+          expiringSoon: expiringSoon.length,
+          expiringThisWeek: expiringThisWeek.length,
+          totalWithExpiry: allItems.filter(item => item.expiryDate).length,
+        };
+      };
+
+      const categoryStats = getCategoryStats();
+      const expiryStats = getExpiryStats();
+
+      const StatCard = ({ title, value, subtitle, color = "#0077cc" }: {
+        title: string;
+        value: string | number;
+        subtitle?: string;
+        color?: string;
+      }) => (
+        <View style={[styles.statCard, { borderLeftColor: color }]}>
+          <Text style={styles.statValue}>{value}</Text>
+          <Text style={styles.statTitle}>{title}</Text>
+          {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
+        </View>
+      );
+
+      if (loading) {
+        return (
+          <SafeAreaView style={styles.container}>
+            <View style={styles.headerSection}>
+              <Text style={styles.title}>Statistiche</Text>
+            </View>
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Caricamento dati...</Text>
+            </View>
+          </SafeAreaView>
+        );
+      }
+
+      return (
+        <SafeAreaView style={styles.container}>
+          <View style={styles.headerSection}>
+            <Text style={styles.title}>Statistiche</Text>
+            <TouchableOpacity
+              style={styles.exportBtn}
+              onPress={() => setShowExportOptions(!showExportOptions)}
+            >
+              <Text style={styles.exportBtnText}>📤 Export</Text>
+            </TouchableOpacity>
+          </View>
+
+          {showExportOptions && (
+            <View style={styles.exportOptions}>
+              <TouchableOpacity
+                style={styles.exportOption}
+                onPress={() => handleExport('json')}
+              >
+                <Text style={styles.exportOptionText}>📄 Backup JSON</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.exportOption}
+                onPress={() => handleExport('csv')}
+              >
+                <Text style={styles.exportOptionText}>📊 Dati CSV</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.exportOption}
+                onPress={() => handleExport('summary')}
+              >
+                <Text style={styles.exportOptionText}>📋 Riepilogo</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          
+          <ScrollView style={styles.scrollView} contentContainerStyle={styles.statsScrollContent} showsVerticalScrollIndicator={false}>
+            {/* Statistiche generali */}
+            <View style={styles.statsSection}>
+              <Text style={styles.sectionTitle}>Panoramica</Text>
+              <View style={styles.statsGrid}>
+                <StatCard
+                  title="Totale Prodotti"
+                  value={allItems.length}
+                  subtitle="nel frigo, freezer e credenza"
+                  color="#4caf50"
+                />
+                <StatCard
+                  title="Frigo"
+                  value={fridge.length}
+                  subtitle="prodotti"
+                  color="#2196f3"
+                />
+                <StatCard
+                  title="Freezer"
+                  value={freezer.length}
+                  subtitle="prodotti"
+                  color="#00bcd4"
+                />
+                <StatCard
+                  title="Credenza"
+                  value={pantry.length}
+                  subtitle="prodotti"
+                  color="#9c27b0"
+                />
+                <StatCard
+                  title="Con Scadenza"
+                  value={expiryStats.totalWithExpiry}
+                  subtitle="prodotti"
+                  color="#ff9800"
+                />
+              </View>
+            </View>
+
+            {/* Statistiche scadenze */}
+            <View style={styles.statsSection}>
+              <Text style={styles.sectionTitle}>Scadenze</Text>
+              <View style={styles.statsGrid}>
+                <StatCard
+                  title="Scaduti"
+                  value={expiryStats.expired}
+                  subtitle="prodotti"
+                  color="#e53935"
+                />
+                <StatCard
+                  title="Scadono Presto"
+                  value={expiryStats.expiringSoon}
+                  subtitle="entro 3 giorni"
+                  color="#ff9800"
+                />
+                <StatCard
+                  title="Questa Settimana"
+                  value={expiryStats.expiringThisWeek}
+                  subtitle="entro 7 giorni"
+                  color="#ffc107"
+                />
+              </View>
+            </View>
+
+            {/* Statistiche per categoria */}
+            <View style={styles.statsSection}>
+              <Text style={styles.sectionTitle}>Per Categoria</Text>
+              {categoryStats.map((stat) => (
+                <View key={stat.id} style={styles.categoryStat}>
+                  <View style={styles.categoryStatHeader}>
+                    <Text style={styles.categoryIcon}>{stat.icon}</Text>
+                    <Text style={styles.categoryName}>{stat.name}</Text>
+                    <View style={styles.categoryStatValues}>
+                      <Text style={styles.categoryCount}>{stat.count} prodotti</Text>
+                      <Text style={styles.categoryQty}>{stat.totalQty} unità</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.categoryBar, { backgroundColor: stat.color }]}>
+                    <View 
+                      style={[
+                        styles.categoryBarFill, 
+                        { 
+                          width: `${(stat.count / Math.max(...categoryStats.map(s => s.count))) * 100}%`,
+                          backgroundColor: stat.color,
+                          opacity: 0.7,
+                        }
+                      ]} 
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* Prodotti in scadenza */}
+            <View style={styles.statsSection}>
+              <Text style={styles.sectionTitle}>Prodotti Scaduti</Text>
+              {allItems
+                .filter(item => {
+                  if (!item.expiryDate) return false;
+                  const expiry = parseDate(item.expiryDate);
+                  if (!expiry) return false;
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  expiry.setHours(0, 0, 0, 0);
+                  return expiry < today;
+                })
+                .length > 0 ? (
+                allItems
+                  .filter(item => {
+                    if (!item.expiryDate) return false;
+                    const expiry = parseDate(item.expiryDate);
+                    if (!expiry) return false;
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    expiry.setHours(0, 0, 0, 0);
+                    return expiry < today;
+                  })
+                  .map((item) => (
+                    <View key={item.id} style={styles.expiredItem}>
+                      <Text style={styles.expiredItemName}>{item.name}</Text>
+                      <Text style={styles.expiredItemDate}>
+                        Scaduto il {item.expiryDate}
+                      </Text>
+                    </View>
+                  ))
+              ) : (
+                <View style={styles.noExpiredItems}>
+                  <Text style={styles.noExpiredText}>🎉 Nessun prodotto scaduto!</Text>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+          
+          {/* Pulsante Torna Indietro */}
+          <TouchableOpacity 
+            style={styles.backFabButton} 
+            onPress={() => setSection(null)}
+          >
+            <Text style={styles.backFabIcon}>← Indietro</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      );
+    }
+    
     const data = section === "fridge" ? fridge : section === "freezer" ? freezer : pantry;
     const loading = section === "fridge" ? fridgeLoading : section === "freezer" ? freezerLoading : pantryLoading;
     const filteredData = filterItems(data);
@@ -639,9 +950,17 @@ export default function Home() {
             style={[styles.section, styles.pantry]}
             onPress={() => setSection("pantry")}
           >
-            <Text style={styles.sectionText}>🏠 Pantry</Text>
+            <Text style={styles.sectionText}>🥫 Pantry</Text>
           </TouchableOpacity>
         </View>
+        
+        {/* Pulsante Statistiche */}
+        <TouchableOpacity
+          style={styles.statsButton}
+          onPress={() => setSection("stats")}
+        >
+          <Text style={styles.statsButtonText}>📊 Statistiche</Text>
+        </TouchableOpacity>
         
       </View>
     </SafeAreaView>
@@ -665,42 +984,31 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    fontSize: 18,
-    color: "#666",
-    fontWeight: "500",
-  },
   sectionsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 20,
+    flexDirection: "row",
+    width: "100%",
+    gap: 15,
+    marginBottom: 30,
+    alignItems: "center",
   },
   fridgeBox: {
-    width: 220,
-    height: 400,
-    borderWidth: 3,
-    borderColor: "#ccc",
-    borderRadius: 20,
-    overflow: "hidden",
+    flexDirection: "column",
+    gap: 15,
+    flex: 1,
+    height: 300,
   },
   pantry: {
-    width: 120,
-    height: 400,
-    backgroundColor: "#f3e5f5",
-    borderWidth: 3,
-    borderColor: "#ccc",
+    backgroundColor: "#ede7f6",
+    flex: 1,
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-  },
-  section: { 
-    justifyContent: "center", 
-    alignItems: "center" 
+    height: 300,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 8,
   },
   fridge: { 
     backgroundColor: "#fff8e1",
@@ -710,7 +1018,39 @@ const styles = StyleSheet.create({
     backgroundColor: "#b3e5fc",
     flex: 1
   },
+  section: {
+    flex: 1,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 8,
+  },
   sectionText: { fontSize: 22, fontWeight: "600" },
+
+  // Stili per il pulsante statistiche
+  statsButton: {
+    backgroundColor: "#4CAF50",
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    marginTop: 20,
+    alignSelf: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+  },
+  statsButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+  },
 
   empty: { textAlign: "center", color: "#666", marginTop: 12 },
 
@@ -784,10 +1124,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 4,
   },
-  categoryIcon: {
-    fontSize: 18,
-    marginRight: 8,
-  },
   itemName: { fontSize: 16, fontWeight: "600", flex: 1, color: "#333" },
   itemQty: { fontSize: 13, color: "#555", marginTop: 2 },
   frozenAtText: { fontSize: 11, color: "#777", marginTop: 2 },
@@ -797,7 +1133,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
   },
-  categoryName: { fontSize: 11, color: "#777", fontStyle: "italic" },
   expiryContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -1010,6 +1345,176 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+
+  // Stili per le statistiche (identici alla tab originale)
+  exportBtn: {
+    backgroundColor: "#0077cc",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  exportBtnText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  exportOptions: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  exportOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: "#f8f9fa",
+  },
+  exportOptionText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  statsScrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  statsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: 12,
+    color: "#333",
+  },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  statCard: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 16,
+    flex: 1,
+    minWidth: "45%",
+    borderLeftWidth: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  statTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+    marginTop: 4,
+  },
+  statSubtitle: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 2,
+  },
+  categoryStat: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  categoryStatHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  categoryIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  categoryName: {
+    fontSize: 16,
+    fontWeight: "600",
+    flex: 1,
+  },
+  categoryStatValues: {
+    alignItems: "flex-end",
+  },
+  categoryCount: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+  },
+  categoryQty: {
+    fontSize: 12,
+    color: "#666",
+  },
+  categoryBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  categoryBarFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  expiredItem: {
+    backgroundColor: "#ffebee",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: "#e53935",
+  },
+  expiredItemName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+  },
+  expiredItemDate: {
+    fontSize: 12,
+    color: "#e53935",
+    marginTop: 2,
+  },
+  noExpiredItems: {
+    backgroundColor: "#e8f5e8",
+    borderRadius: 8,
+    padding: 16,
+    alignItems: "center",
+    borderLeftWidth: 4,
+    borderLeftColor: "#4caf50",
+  },
+  noExpiredText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2e7d32",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: 18,
+    color: "#666",
+    fontWeight: "500",
   },
 
   // Stili per il modal di modifica

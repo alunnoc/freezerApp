@@ -30,6 +30,7 @@ const MAPPING = {
   'square.and.arrow.up': 'upload',
   'square.and.arrow.down': 'download',
   'xmark.circle': 'cancel',
+  'cart.fill': 'shopping-cart',
 } as IconMapping;
 
 /**
