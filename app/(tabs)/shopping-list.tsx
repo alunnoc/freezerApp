@@ -3,6 +3,7 @@ import {
     Alert,
     FlatList,
     SafeAreaView,
+    Share,
     StyleSheet,
     Text,
     TextInput,
@@ -115,6 +116,48 @@ export default function ShoppingListScreen() {
     saveShoppingList(activeItems);
   };
 
+  const shareShoppingList = async () => {
+    if (shoppingList.length === 0) {
+      Alert.alert('Lista vuota', 'Non ci sono elementi da condividere');
+      return;
+    }
+
+    const pendingItems = shoppingList.filter(item => !item.completed);
+    const completedItems = shoppingList.filter(item => item.completed);
+
+    let shareText = '🛒 LISTA DELLA SPESA\n\n';
+    
+    if (pendingItems.length > 0) {
+      shareText += '📝 DA COMPRARE:\n';
+      pendingItems.forEach((item, index) => {
+        const quantity = item.quantity ? `${item.quantity}${item.unit ? ` ${item.unit}` : ''}` : '';
+        shareText += `${index + 1}. ${item.name}${quantity ? ` (${quantity})` : ''}\n`;
+      });
+      shareText += '\n';
+    }
+
+    if (completedItems.length > 0) {
+      shareText += '✅ GIÀ COMPRATO:\n';
+      completedItems.forEach((item, index) => {
+        const quantity = item.quantity ? `${item.quantity}${item.unit ? ` ${item.unit}` : ''}` : '';
+        shareText += `${index + 1}. ${item.name}${quantity ? ` (${quantity})` : ''}\n`;
+      });
+    }
+
+    shareText += `\n📊 Totale: ${shoppingList.length} elementi`;
+    shareText += `\n📝 Da comprare: ${pendingItems.length}`;
+    shareText += `\n✅ Comprati: ${completedItems.length}`;
+
+    try {
+      await Share.share({
+        message: shareText,
+        title: 'Lista della Spesa',
+      });
+    } catch (error) {
+      Alert.alert('Errore', 'Impossibile condividere la lista');
+    }
+  };
+
   const totalItems = shoppingList.length;
   const completedItems = shoppingList.filter(item => item.completed).length;
   const pendingItems = totalItems - completedItems;
@@ -177,6 +220,13 @@ export default function ShoppingListScreen() {
         {/* Pulsanti azione */}
         <View style={styles.actionButtons}>
           <TouchableOpacity
+            style={styles.shareButton}
+            onPress={shareShoppingList}
+          >
+            <Text style={styles.shareButtonText}>📤 Condividi</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
             style={styles.addButton}
             onPress={() => {
               setShowAddForm(true);
@@ -185,6 +235,7 @@ export default function ShoppingListScreen() {
           >
             <Text style={styles.addButtonText}>+ Aggiungi</Text>
           </TouchableOpacity>
+          
           {completedItems > 0 && (
             <TouchableOpacity
               style={styles.clearButton}
@@ -326,7 +377,8 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
     marginBottom: 10,
   },
   addButton: {
@@ -335,9 +387,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 25,
     flex: 1,
-    marginRight: 10,
+    minWidth: 120,
   },
   addButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  shareButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    flex: 1,
+    minWidth: 120,
+  },
+  shareButtonText: {
     color: 'white',
     fontWeight: '600',
     textAlign: 'center',
@@ -347,10 +412,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 25,
+    flex: 1,
+    minWidth: 120,
   },
   clearButtonText: {
     color: 'white',
     fontWeight: '600',
+    textAlign: 'center',
   },
   list: {
     flex: 1,
