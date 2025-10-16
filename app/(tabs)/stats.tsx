@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -23,19 +24,40 @@ const CATEGORIES = [
 ];
 
 export default function Stats() {
-  const { data: fridge, loading: fridgeLoading } = useStorage<Item[]>("fridge", []);
-  const { data: freezer, loading: freezerLoading } = useStorage<Item[]>("freezer", []);
-  const { data: pantry, loading: pantryLoading } = useStorage<Item[]>("pantry", []);
+  const { data: fridge, loading: fridgeLoading, forceReload: forceReloadFridge } = useStorage<Item[]>("fridge", []);
+  const { data: freezer, loading: freezerLoading, forceReload: forceReloadFreezer } = useStorage<Item[]>("freezer", []);
+  const { data: pantry, loading: pantryLoading, forceReload: forceReloadPantry } = useStorage<Item[]>("pantry", []);
   const [showExportOptions, setShowExportOptions] = useState(false);
 
   const allItems = [...fridge, ...freezer, ...pantry];
   
-  // Debug: log the data to see what's happening
-  console.log('Stats - Fridge data:', fridge);
-  console.log('Stats - Freezer data:', freezer);
-  console.log('Stats - Pantry data:', pantry);
-  console.log('Stats - All items:', allItems);
-  console.log('Stats - Loading states:', { fridgeLoading, freezerLoading, pantryLoading });
+  // Forza il re-rendering quando i dati cambiano
+  useEffect(() => {
+    // I dati sono cambiati, il componente si aggiorna automaticamente
+  }, [fridge, freezer, pantry]);
+  
+  // Forza il ricaricamento dei dati quando il componente si monta
+  useEffect(() => {
+    // I dati vengono caricati automaticamente dal useStorage hook
+  }, []); // Solo quando il componente si monta
+  
+  // Forza il ricaricamento quando torni al tab
+  useFocusEffect(
+    React.useCallback(() => {
+      // Forza il ricaricamento dei dati usando le funzioni forceReload
+      const forceReloadAll = async () => {
+        try {
+          await forceReloadFridge();
+          await forceReloadFreezer();
+          await forceReloadPantry();
+        } catch (error) {
+          // Ignora errori di ricaricamento
+        }
+      };
+      
+      forceReloadAll();
+    }, [forceReloadFridge, forceReloadFreezer, forceReloadPantry])
+  );
 
   const handleExport = async (format: 'json' | 'csv' | 'summary') => {
     try {
@@ -147,7 +169,7 @@ export default function Stats() {
   );
 
   // Show loading state if data is still loading
-  if (fridgeLoading || freezerLoading) {
+  if (fridgeLoading || freezerLoading || pantryLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>

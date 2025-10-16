@@ -402,19 +402,22 @@ export default function Home() {
             }
             contentContainerStyle={{ 
               paddingBottom: showAddForm ? 20 : 100, 
-              paddingTop: 10 
+              paddingTop: 10,
+              flexGrow: 1
             }}
             showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+            style={{ flex: 1 }}
           />
         </View>
 
-        {/* Pulsante Aggiungi prodotto */}
+        {/* Pulsante Aggiungi prodotto - FAB */}
         {!showAddForm && (
           <TouchableOpacity 
-            style={styles.addProductBtn} 
+            style={styles.fabButton} 
             onPress={() => setShowAddForm(true)}
           >
-            <Text style={styles.addProductBtnText}>+ Aggiungi prodotto</Text>
+            <Text style={styles.fabIcon}>+</Text>
           </TouchableOpacity>
         )}
 
@@ -594,7 +597,7 @@ export default function Home() {
         )}
 
         <TouchableOpacity 
-          style={styles.backBtn} 
+          style={styles.backFabButton} 
           onPress={() => {
             setSection(null);
             setShowAddForm(false);
@@ -604,7 +607,7 @@ export default function Home() {
             setEditSection(null);
           }}
         >
-          <Text style={styles.backText}>← Torna indietro</Text>
+          <Text style={styles.backFabIcon}>← Indietro</Text>
         </TouchableOpacity>
           </SafeAreaView>
         </TouchableWithoutFeedback>
@@ -874,6 +877,29 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  // FAB (Floating Action Button) styles
+  fabButton: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#0077cc",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+  },
+  fabIcon: {
+    color: "white",
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+
   addFormContainer: {
     position: "absolute",
     bottom: 70,
@@ -983,6 +1009,29 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   backText: { color: "white", fontWeight: "bold" },
+
+  // Back FAB (Floating Action Button) styles
+  backFabButton: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    backgroundColor: "#0077cc",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+  },
+  backFabIcon: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 
   // Stili per il modal di modifica
   editModalOverlay: {

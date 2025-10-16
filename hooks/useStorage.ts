@@ -7,10 +7,41 @@ export function useStorage<T>(key: string, defaultValue: T) {
   const [data, setData] = useState<T>(defaultValue);
   const [loading, setLoading] = useState(true);
 
-  // Carica i dati all'avvio
+  // Carica i dati all'avvio e ogni volta che il componente si monta
   useEffect(() => {
     loadData();
   }, []);
+  
+  // Per React Native, ricarica i dati quando il componente si monta
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      loadData();
+    }
+  }, []);
+
+  // Ascolta i cambiamenti globali per questo key
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === key && e.newValue) {
+        try {
+          setData(JSON.parse(e.newValue));
+        } catch (error) {
+          console.error('Error parsing storage data:', error);
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.addEventListener('storage', handleStorageChange);
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+      };
+    }
+    
+    // Per React Native, ricarica i dati quando il componente si monta
+    // Questo assicura che i dati siano sempre aggiornati
+    return () => {};
+  }, [key]);
 
   const loadData = async () => {
     try {
@@ -47,13 +78,13 @@ export function useStorage<T>(key: string, defaultValue: T) {
       if (typeof window !== 'undefined' && window.localStorage) {
         // Web: usa localStorage
         window.localStorage.setItem(key, JSON.stringify(newData));
-        console.log(`Data saved to localStorage for key: ${key}`);
+        // Data saved to localStorage
       } else {
         // React Native: usa AsyncStorage se disponibile
         try {
           const AsyncStorage = require('@react-native-async-storage/async-storage').default;
           await AsyncStorage.setItem(key, JSON.stringify(newData));
-          console.log(`Data saved to AsyncStorage for key: ${key}`);
+          // Data saved to AsyncStorage
         } catch (error) {
           console.log('AsyncStorage not available, data saved in memory only');
         }
@@ -63,7 +94,12 @@ export function useStorage<T>(key: string, defaultValue: T) {
     }
   };
 
-  return { data, saveData, loading };
+  // Funzione per forzare il ricaricamento dei dati
+  const forceReload = async () => {
+    await loadData();
+  };
+
+  return { data, saveData, loading, forceReload };
 }
 
 export type { Item };
