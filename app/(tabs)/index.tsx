@@ -930,14 +930,14 @@ export default function Home() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.homeContent}>
-        <Text style={styles.title}>What's in the</Text>
+        <Text style={styles.title}>Cosa c'è in</Text>
         <View style={styles.sectionsContainer}>
           <View style={styles.fridgeBox}>
             <TouchableOpacity
               style={[styles.section, styles.fridge]}
               onPress={() => setSection("fridge")}
             >
-              <Text style={styles.sectionText}>🧊 Fridge</Text>
+              <Text style={styles.sectionText}>🧊 Frigo</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.section, styles.freezer]}
@@ -950,7 +950,7 @@ export default function Home() {
             style={[styles.section, styles.pantry]}
             onPress={() => setSection("pantry")}
           >
-            <Text style={styles.sectionText}>🥫 Pantry</Text>
+            <Text style={styles.sectionText}>🥫 Credenza</Text>
           </TouchableOpacity>
         </View>
         
@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
 
   // Stili per il pulsante statistiche
   statsButton: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#FFB6C1",
     paddingVertical: 15,
     paddingHorizontal: 30,
     borderRadius: 25,

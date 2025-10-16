@@ -150,7 +150,10 @@ export default function MenuScreen() {
                     {field === 'lunch' ? 'Pranzo' : 'Cena'}
                   </Text>
                   <TouchableOpacity
-                    style={styles.valueBox}
+                    style={[
+                      styles.valueBox,
+                      dayMenu[field] && styles.valueBoxFilled
+                    ]}
                     onPress={() => startEdit(day, field, dayMenu[field])}
                   >
                     <Text style={styles.valueText} numberOfLines={2}>
@@ -305,6 +308,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     paddingHorizontal: 10,
+  },
+  valueBoxFilled: {
+    backgroundColor: '#e8f5e8',
+    borderColor: '#4CAF50',
+    borderWidth: 2,
   },
   valueText: { color: '#333' },
   editBar: {
