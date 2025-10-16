@@ -1,10 +1,12 @@
 // app/index.tsx
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useState } from "react";
 import {
   Alert,
   FlatList,
+  Platform,
   SafeAreaView,
   ScrollView,
   Share,
@@ -42,6 +44,7 @@ export default function Home() {
   const [editExpiryDate, setEditExpiryDate] = useState("");
   const [editSection, setEditSection] = useState<SectionKey | null>(null);
   const [showScanner, setShowScanner] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [showExportOptions, setShowExportOptions] = useState(false);
 
@@ -249,6 +252,18 @@ export default function Home() {
       Alert.alert('Errore', 'Impossibile cercare il prodotto. Riprova.');
     } finally {
       setIsLookingUp(false);
+    }
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      // Formatta la data come DD-MM-YYYY
+      const day = selectedDate.getDate().toString().padStart(2, '0');
+      const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+      const year = selectedDate.getFullYear();
+      const formattedDate = `${day}-${month}-${year}`;
+      setExpiryDate(formattedDate);
     }
   };
 
@@ -793,6 +808,12 @@ export default function Home() {
                     onChangeText={setExpiryDate}
                     style={[styles.input, { flex: 1 }]}
                   />
+                  <TouchableOpacity
+                    style={styles.dateButton}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Text style={styles.dateButtonText}>📅</Text>
+                  </TouchableOpacity>
                 </View>
                 
                 {/* Selettore categorie */}
@@ -827,6 +848,17 @@ export default function Home() {
           <OfficialCameraScanner
             onScan={handleBarcodeScan}
             onClose={() => setShowScanner(false)}
+          />
+        )}
+
+        {/* Date Picker */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={new Date()}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleDateChange}
+            minimumDate={new Date()}
           />
         )}
 
@@ -1074,7 +1106,7 @@ const styles = StyleSheet.create({
   },
   filterScroll: {
     marginBottom: 12,
-    maxHeight: 50,
+    maxHeight: 60,
   },
   filterBtn: {
     flexDirection: "row",
@@ -1268,6 +1300,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e5e5e5",
   },
+  dateButton: {
+    backgroundColor: "#E1BEE7",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginLeft: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    minWidth: 50,
+    height: 42, // Stessa altezza dei campi input (paddingVertical: 10 + borderWidth: 1 + padding interno)
+  },
+  dateButtonText: {
+    fontSize: 20,
+    lineHeight: 20,
+    textAlignVertical: 'center',
+  },
   
   // Stili per le categorie
   categoryLabel: { 
@@ -1309,7 +1357,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
-    marginTop: 4,
+    marginTop: 20,
   },
   addBtnText: { color: "white", fontWeight: "700" },
 
@@ -1646,14 +1694,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#0077cc",
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 10,
     marginLeft: 8,
     alignItems: "center",
     justifyContent: "center",
     minWidth: 50,
+    height: 42, // Stessa altezza dei campi input
   },
   scannerButtonText: {
     fontSize: 20,
     color: "white",
+    lineHeight: 20,
+    textAlignVertical: 'center',
   },
 });
