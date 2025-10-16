@@ -531,7 +531,7 @@ export default function Home() {
                   color="#00bcd4"
                 />
                 <StatCard
-                  title="Credenza"
+                  title="Dispensa"
                   value={pantry.length}
                   subtitle="prodotti"
                   color="#9c27b0"
@@ -668,7 +668,7 @@ export default function Home() {
       <SafeAreaView style={styles.container}>
             <View style={styles.headerSection}>
           <Text style={styles.title}>
-            {section === "fridge" ? "Frigo" : section === "freezer" ? "Freezer" : "Credenza"}
+            {section === "fridge" ? "Frigo" : section === "freezer" ? "Freezer" : "Dispensa"}
           </Text>
 
           {/* Filtri per categoria */}
@@ -958,7 +958,7 @@ export default function Home() {
     );
   }
 
-  // Home con i tre pulsanti (Frigo, Freezer, Credenza)
+  // Home con i tre pulsanti (Frigo, Freezer, Dispensa)
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.homeContent}>
@@ -982,7 +982,7 @@ export default function Home() {
             style={[styles.section, styles.pantry]}
             onPress={() => setSection("pantry")}
           >
-            <Text style={styles.sectionText}>🥫 Credenza</Text>
+            <Text style={styles.sectionText}>🥫 Dispensa</Text>
           </TouchableOpacity>
         </View>
         

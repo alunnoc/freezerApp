@@ -50,7 +50,7 @@ export default function MenuScreen() {
     }));
     const pantryProducts = (pantryData || []).map(product => ({
       ...product,
-      location: 'Credenza',
+      location: 'Dispensa',
       locationColor: '#9C27B0'
     }));
     return [...fridgeProducts, ...freezerProducts, ...pantryProducts];

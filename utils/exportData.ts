@@ -24,7 +24,7 @@ export const exportToCSV = (fridge: Item[], freezer: Item[], pantry: Item[]): st
   const allItems = [
     ...fridge.map(item => ({ ...item, section: 'Frigo' })),
     ...freezer.map(item => ({ ...item, section: 'Freezer' })),
-    ...pantry.map(item => ({ ...item, section: 'Credenza' }))
+    ...pantry.map(item => ({ ...item, section: 'Dispensa' }))
   ];
 
   const headers = ['Sezione', 'Nome', 'Quantità', 'Unità', 'Categoria', 'Data Scadenza'];
@@ -82,7 +82,7 @@ export const generateSummary = (fridge: Item[], freezer: Item[], pantry: Item[])
   summary += `\nSEZIONI:\n`;
   summary += `- Frigo: ${fridge.length} prodotti\n`;
   summary += `- Freezer: ${freezer.length} prodotti\n`;
-  summary += `- Credenza: ${pantry.length} prodotti\n`;
+  summary += `- Dispensa: ${pantry.length} prodotti\n`;
 
   return summary;
 };
