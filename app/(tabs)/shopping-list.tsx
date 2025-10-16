@@ -20,14 +20,22 @@ interface ShoppingItem {
   category?: string;
 }
 
-const SHOPPING_CATEGORIES = [
-  { id: "dairy", name: "Latticini", color: "#fff8e1", icon: "🥛" },
-  { id: "vegetables", name: "Verdure", color: "#e8f5e9", icon: "🥬" },
-  { id: "meat", name: "Carne", color: "#ffebee", icon: "🥩" },
-  { id: "fish", name: "Pesce", color: "#e3f2fd", icon: "🐟" },
-  { id: "frozen", name: "Surgelati", color: "#f3e5f5", icon: "❄️" },
-  { id: "beverages", name: "Bevande", color: "#e0f2f1", icon: "🥤" },
-  { id: "other", name: "Altro", color: "#f5f5f5", icon: "📦" },
+// Prodotti comuni che si comprano sempre
+const COMMON_PRODUCTS = [
+  'Pollo', 'Hamburger', 'Latte', 'Insalata', 'Pomodori',
+  'Pane', 'Uova', 'Formaggio', 'Yogurt', 'Pasta',
+  'Riso', 'Patate', 'Cipolle', 'Aglio', 'Olio',
+  'Burro', 'Sale', 'Pepe', 'Zucchero', 'Farina',
+  'Banane', 'Mele', 'Pere', 'Limoni', 'Carote',
+  'Broccoli', 'Spinaci', 'Peperoni', 'Zucchine', 'Melanzane',
+  'Pesce', 'Salmone', 'Tonno', 'Gamberetti', 'Manzo',
+  'Maiale', 'Salsicce', 'Prosciutto', 'Salame', 'Mozzarella',
+  'Parmigiano', 'Ricotta', 'Mascarpone', 'Gorgonzola', 'Stracchino',
+  'Aceto', 'Salsa di pomodoro', 'Passata', 'Pesto', 'Olio extravergine',
+  'Caffè', 'Tè', 'Biscotti', 'Crackers', 'Cereali',
+  'Muesli', 'Avena', 'Miele', 'Marmellata', 'Nutella',
+  'Cioccolato', 'Gelato', 'Yogurt greco', 'Kefir', 'Acqua',
+  'Succo', 'Coca Cola', 'Birra', 'Vino', 'Spumante'
 ];
 
 export default function ShoppingListScreen() {
@@ -35,8 +43,25 @@ export default function ShoppingListScreen() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState('');
   const [newItemUnit, setNewItemUnit] = useState('');
-  const [newItemCategory, setNewItemCategory] = useState('other');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Filtra i suggerimenti basati sul testo inserito
+  const filteredSuggestions = newItemName.length > 0 
+    ? COMMON_PRODUCTS.filter(product =>
+        product.toLowerCase().includes(newItemName.toLowerCase())
+      ).slice(0, 8) // Mostra massimo 8 suggerimenti filtrati
+    : COMMON_PRODUCTS.slice(0, 8); // Mostra i primi 8 prodotti quando non c'è testo
+
+  const handleNameChange = (text: string) => {
+    setNewItemName(text);
+    setShowSuggestions(true); // Mostra sempre i suggerimenti
+  };
+
+  const selectSuggestion = (product: string) => {
+    setNewItemName(product);
+    setShowSuggestions(false);
+  };
 
   const addItem = () => {
     if (!newItemName.trim()) {
@@ -50,15 +75,14 @@ export default function ShoppingListScreen() {
       quantity: newItemQuantity ? parseInt(newItemQuantity) : undefined,
       unit: newItemUnit.trim() || undefined,
       completed: false,
-      category: newItemCategory,
     };
 
     saveShoppingList([newItem, ...shoppingList]);
     setNewItemName('');
     setNewItemQuantity('');
     setNewItemUnit('');
-    setNewItemCategory('other');
     setShowAddForm(false);
+    setShowSuggestions(false);
   };
 
   const toggleItem = (id: string) => {
@@ -91,21 +115,6 @@ export default function ShoppingListScreen() {
     saveShoppingList(activeItems);
   };
 
-  const getCategoryStats = () => {
-    const stats = SHOPPING_CATEGORIES.map(category => {
-      const items = shoppingList.filter(item => item.category === category.id);
-      const completed = items.filter(item => item.completed).length;
-      return {
-        ...category,
-        total: items.length,
-        completed,
-        pending: items.length - completed,
-      };
-    });
-    return stats;
-  };
-
-  const categoryStats = getCategoryStats();
   const totalItems = shoppingList.length;
   const completedItems = shoppingList.filter(item => item.completed).length;
   const pendingItems = totalItems - completedItems;
@@ -169,7 +178,10 @@ export default function ShoppingListScreen() {
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => setShowAddForm(true)}
+            onPress={() => {
+              setShowAddForm(true);
+              setShowSuggestions(true); // Mostra i suggerimenti subito
+            }}
           >
             <Text style={styles.addButtonText}>+ Aggiungi</Text>
           </TouchableOpacity>
@@ -209,8 +221,26 @@ export default function ShoppingListScreen() {
               style={styles.input}
               placeholder="Nome prodotto"
               value={newItemName}
-              onChangeText={setNewItemName}
+              onChangeText={handleNameChange}
             />
+            
+            {/* Suggerimenti prodotti comuni */}
+            {showSuggestions && (
+              <View style={styles.suggestionsContainer}>
+                <Text style={styles.suggestionsTitle}>Suggerimenti:</Text>
+                <View style={styles.suggestionsList}>
+                  {filteredSuggestions.map((product, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.suggestionItem}
+                      onPress={() => selectSuggestion(product)}
+                    >
+                      <Text style={styles.suggestionText}>{product}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
             
             <View style={styles.quantityRow}>
               <TextInput
@@ -228,25 +258,6 @@ export default function ShoppingListScreen() {
               />
             </View>
 
-            <View style={styles.categoryContainer}>
-              <Text style={styles.categoryLabel}>Categoria:</Text>
-              <View style={styles.categoryGrid}>
-                {SHOPPING_CATEGORIES.map((category) => (
-                  <TouchableOpacity
-                    key={category.id}
-                    style={[
-                      styles.categoryButton,
-                      { backgroundColor: category.color },
-                      newItemCategory === category.id && styles.selectedCategory
-                    ]}
-                    onPress={() => setNewItemCategory(category.id)}
-                  >
-                    <Text style={styles.categoryIcon}>{category.icon}</Text>
-                    <Text style={styles.categoryButtonText}>{category.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -468,40 +479,6 @@ const styles = StyleSheet.create({
   unitInput: {
     flex: 1,
   },
-  categoryContainer: {
-    marginBottom: 20,
-  },
-  categoryLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
-    color: '#333',
-  },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  categoryButton: {
-    padding: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-    minWidth: 80,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  selectedCategory: {
-    borderColor: '#0077cc',
-  },
-  categoryIcon: {
-    fontSize: 16,
-    marginBottom: 2,
-  },
-  categoryButtonText: {
-    fontSize: 10,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -528,5 +505,32 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: 'white',
     fontWeight: '600',
+  },
+  suggestionsContainer: {
+    marginBottom: 15,
+  },
+  suggestionsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+  },
+  suggestionsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  suggestionItem: {
+    backgroundColor: '#f0f8ff',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#0077cc',
+  },
+  suggestionText: {
+    fontSize: 12,
+    color: '#0077cc',
+    fontWeight: '500',
   },
 });
