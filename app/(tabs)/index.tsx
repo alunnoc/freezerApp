@@ -333,17 +333,6 @@ export default function Home() {
             {section === "fridge" ? "Frigo" : section === "freezer" ? "Freezer" : "Credenza"}
           </Text>
 
-          {/* Barra di ricerca */}
-          <View style={styles.searchContainer}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Cerca prodotti..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor="#999"
-            />
-          </View>
-
           {/* Filtri per categoria */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
             <TouchableOpacity
@@ -375,6 +364,17 @@ export default function Home() {
               </TouchableOpacity>
             ))}
           </ScrollView>
+
+          {/* Barra di ricerca */}
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Cerca prodotti..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#999"
+            />
+          </View>
         </View>
 
         {/* Lista elementi */}
