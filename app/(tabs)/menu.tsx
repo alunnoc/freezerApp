@@ -54,7 +54,7 @@ export default function MenuScreen() {
       locationColor: '#9C27B0'
     }));
     return [...fridgeProducts, ...freezerProducts, ...pantryProducts];
-  }, [fridgeData, freezerData, pantryData, myRecipes]);
+  }, [fridgeData, freezerData, pantryData]);
 
   const startEdit = (day: string, field: keyof MenuDay, current?: string) => {
     setEditing({ day, field });
@@ -200,7 +200,7 @@ export default function MenuScreen() {
         )}
 
         {/* Tab unificata con prodotti e ricette */}
-        {editing && showUnifiedTab && (allProducts.length > 0 || myRecipes.length > 0) && (
+        {editing && showUnifiedTab && (
           <View style={styles.unifiedContainer}>
             {/* Prima riga: Prodotti */}
             {allProducts.length > 0 && (
