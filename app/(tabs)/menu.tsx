@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useStorage } from '../../hooks/useStorage';
 import { generateSummary } from '../../utils/exportData';
@@ -20,15 +21,16 @@ export default function MenuScreen() {
   const { data: menu, saveData: saveMenu } = useStorage<WeeklyMenu>('weeklyMenu', defaultMenu);
   
   // Accesso ai dati del frigo, freezer e credenza per i suggerimenti
-  const { data: fridgeData } = useStorage<any[]>('fridge', []);
-  const { data: freezerData } = useStorage<any[]>('freezer', []);
-  const { data: pantryData } = useStorage<any[]>('pantry', []);
-  const { data: myRecipes } = useStorage<any[]>('my-recipes', []);
+  const { data: fridgeData, forceReload: reloadFridge } = useStorage<any[]>('fridge', []);
+  const { data: freezerData, forceReload: reloadFreezer } = useStorage<any[]>('freezer', []);
+  const { data: pantryData, forceReload: reloadPantry } = useStorage<any[]>('pantry', []);
+  const { data: myRecipes, forceReload: reloadRecipes } = useStorage<any[]>('my-recipes', []);
 
   const [editing, setEditing] = useState<{ day: string; field: keyof MenuDay } | null>(null);
   const [tempValue, setTempValue] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showUnifiedTab, setShowUnifiedTab] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Calcola il nome del giorno odierno in italiano (array inizia da Lunedì)
   const todayName = useMemo(() => {
@@ -36,6 +38,58 @@ export default function MenuScreen() {
     const idx = (jsDay + 6) % 7; // mappa: Lun=0 ... Dom=6
     return WEEK_DAYS[idx];
   }, []);
+
+  // Traccia quando i dati sono caricati
+  useEffect(() => {
+    const hasData = fridgeData !== undefined && freezerData !== undefined && pantryData !== undefined && myRecipes !== undefined;
+    setIsDataLoaded(hasData);
+    
+    // Se i dati non sono caricati dopo 2 secondi, forziamo il caricamento
+    if (!hasData) {
+      const timeout = setTimeout(() => {
+        // Forza un re-render
+        setIsDataLoaded(true);
+      }, 2000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [fridgeData, freezerData, pantryData, myRecipes]);
+
+  // Forza il ricaricamento dei dati quando il componente si monta
+  useEffect(() => {
+    const reloadData = async () => {
+      await Promise.all([
+        reloadFridge(),
+        reloadFreezer(), 
+        reloadPantry(),
+        reloadRecipes()
+      ]);
+    };
+    
+    // Ricarica i dati dopo un breve delay per assicurarsi che siano aggiornati
+    const timeout = setTimeout(reloadData, 100);
+    
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // Ricarica i dati ogni volta che si torna al menù
+  useFocusEffect(
+    React.useCallback(() => {
+      const reloadData = async () => {
+        await Promise.all([
+          reloadFridge(),
+          reloadFreezer(), 
+          reloadPantry(),
+          reloadRecipes()
+        ]);
+      };
+      
+      // Piccolo delay per assicurarsi che i dati siano aggiornati
+      const timeout = setTimeout(reloadData, 50);
+      
+      return () => clearTimeout(timeout);
+    }, [reloadFridge, reloadFreezer, reloadPantry, reloadRecipes])
+  );
 
   // Lista di tutti i prodotti per la barra orizzontale
   const allProducts = useMemo(() => {
@@ -54,7 +108,8 @@ export default function MenuScreen() {
       location: 'Dispensa',
       locationColor: '#9C27B0'
     }));
-    return [...fridgeProducts, ...freezerProducts, ...pantryProducts];
+    const result = [...fridgeProducts, ...freezerProducts, ...pantryProducts];
+    return result;
   }, [fridgeData, freezerData, pantryData]);
 
   const startEdit = (day: string, field: keyof MenuDay, current?: string) => {
@@ -227,7 +282,7 @@ export default function MenuScreen() {
         {editing && showUnifiedTab && (
           <View style={styles.unifiedContainer}>
             {/* Prima riga: Prodotti */}
-            {allProducts.length > 0 && (
+            {allProducts.length > 0 ? (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>I tuoi prodotti:</Text>
                 <FlatList
@@ -255,10 +310,27 @@ export default function MenuScreen() {
                   contentContainerStyle={styles.unifiedList}
                 />
               </View>
+            ) : (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Caricamento prodotti...</Text>
+                <TouchableOpacity 
+                  style={styles.reloadButton}
+                  onPress={async () => {
+                    await Promise.all([
+                      reloadFridge(),
+                      reloadFreezer(), 
+                      reloadPantry(),
+                      reloadRecipes()
+                    ]);
+                  }}
+                >
+                  <Text style={styles.reloadButtonText}>🔄 Ricarica dati</Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             {/* Seconda riga: Ricette */}
-            {myRecipes.length > 0 && (
+            {myRecipes && myRecipes.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Le tue ricette:</Text>
                 <FlatList
@@ -287,6 +359,7 @@ export default function MenuScreen() {
                 />
               </View>
             )}
+
           </View>
         )}
 
@@ -614,6 +687,19 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: '500',
     marginLeft: 4,
+  },
+  reloadButton: {
+    backgroundColor: '#0077cc',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginTop: 12,
+    alignSelf: 'center',
+  },
+  reloadButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   overlay: {
     position: 'absolute',
