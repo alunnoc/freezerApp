@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useStorage } from '../../hooks/useStorage';
+import { generateSummary } from '../../utils/exportData';
 
 type MenuDay = {
   breakfast?: string;
@@ -110,6 +111,20 @@ export default function MenuScreen() {
     saveMenu(next);
   };
 
+  // Funzione per esportare il menù in formato riepilogo per WhatsApp
+  const handleMenuExport = async () => {
+    try {
+      const content = generateSummary(fridgeData || [], freezerData || [], pantryData || [], menu);
+      
+      await Share.share({
+        message: content,
+        title: 'Menu Settimanale',
+      });
+    } catch (error) {
+      Alert.alert('Errore', 'Impossibile esportare il menù');
+    }
+  };
+
   return (
     <KeyboardAvoidingView 
       style={styles.container}
@@ -117,7 +132,15 @@ export default function MenuScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <SafeAreaView style={styles.container}>
-        <Text style={styles.title}>Menù settimanale</Text>
+        <View style={styles.headerContainer}>
+          <Text style={styles.title}>Menù settimanale</Text>
+          <TouchableOpacity 
+            style={styles.exportButton}
+            onPress={handleMenuExport}
+          >
+            <Text style={styles.exportButtonText}>💬</Text>
+          </TouchableOpacity>
+        </View>
 
         <ScrollView 
           style={{ flex: 1 }}
@@ -265,6 +288,7 @@ export default function MenuScreen() {
             )}
           </View>
         )}
+
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
@@ -272,7 +296,28 @@ export default function MenuScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f0faff', padding: 16 },
-  title: { fontSize: 24, fontWeight: '700', textAlign: 'center', marginVertical: 8 },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  title: { fontSize: 24, fontWeight: '700', flex: 1, textAlign: 'center' },
+  exportButton: {
+    backgroundColor: '#0b67b2',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  exportButtonText: {
+    fontSize: 18,
+  },
   card: {
     backgroundColor: 'white',
     borderRadius: 12,
