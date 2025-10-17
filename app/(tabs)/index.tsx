@@ -4,17 +4,17 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useState } from "react";
 import {
-  Alert,
-  FlatList,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    FlatList,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    Share,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { OfficialCameraScanner } from "../../components/OfficialCameraScanner";
 import { Item, useStorage } from "../../hooks/useStorage";
@@ -772,6 +772,7 @@ export default function Home() {
                 <View style={styles.formRow}>
                   <TextInput
                     placeholder="Nome (es. Yogurt)"
+                    placeholderTextColor="#999"
                     value={nameInput}
                     onChangeText={setNameInput}
                     style={[styles.input, { flex: 1 }]}
@@ -789,6 +790,7 @@ export default function Home() {
                 <View style={styles.formRow}>
                   <TextInput
                     placeholder="Quantità"
+                    placeholderTextColor="#999"
                     keyboardType="numeric"
                     value={qtyInput}
                     onChangeText={setQtyInput}
@@ -796,6 +798,7 @@ export default function Home() {
                   />
                   <TextInput
                     placeholder="Unità (pz, L, g...)"
+                    placeholderTextColor="#999"
                     value={unitInput}
                     onChangeText={setUnitInput}
                     style={[styles.input, { flex: 1, marginLeft: 8 }]}
@@ -804,6 +807,7 @@ export default function Home() {
                 <View style={styles.formRow}>
                   <TextInput
                     placeholder="Data scadenza (DD-MM-YYYY)"
+                    placeholderTextColor="#999"
                     value={expiryDate}
                     onChangeText={setExpiryDate}
                     style={[styles.input, { flex: 1 }]}

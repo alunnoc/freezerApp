@@ -1,18 +1,19 @@
 // Tab per le ricette personali dell'utente
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    Share,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useStorage } from '../../hooks/useStorage';
 import { matchIngredients } from '../../utils/ingredientMatcher';
@@ -88,6 +89,69 @@ export default function MyRecipesScreen() {
     setRecipeServings('');
     setRecipeCategory('Primi');
     setEditingRecipe(null);
+  };
+
+  // Funzione per esportare le ricette in formato riepilogo per WhatsApp
+  const handleRecipesExport = async () => {
+    try {
+      if (recipes.length === 0) {
+        Alert.alert('Nessuna ricetta', 'Non ci sono ricette da esportare');
+        return;
+      }
+
+      let content = `🍳 LE MIE RICETTE\n`;
+      content += `================\n\n`;
+      content += `Data: ${new Date().toLocaleDateString('it-IT')}\n`;
+      content += `Totale ricette: ${recipes.length}\n\n`;
+
+      // Raggruppa per categoria
+      const recipesByCategory = recipes.reduce((acc, recipe) => {
+        if (!acc[recipe.category]) {
+          acc[recipe.category] = [];
+        }
+        acc[recipe.category].push(recipe);
+        return acc;
+      }, {} as Record<string, PersonalRecipe[]>);
+
+      Object.entries(recipesByCategory).forEach(([category, categoryRecipes]) => {
+        content += `📂 ${category.toUpperCase()} (${categoryRecipes.length} ricette)\n`;
+        content += `${'='.repeat(category.length + 20)}\n\n`;
+        
+        categoryRecipes.forEach(recipe => {
+          content += `🍽️ ${recipe.name}\n`;
+          if (recipe.description) {
+            content += `   ${recipe.description}\n`;
+          }
+          content += `   ⏱️ Tempo: ${recipe.time}\n`;
+          content += `   👥 Porzioni: ${recipe.servings}\n`;
+          content += `   📊 Difficoltà: ${recipe.difficulty}\n`;
+          
+          if (recipe.ingredients.length > 0) {
+            content += `   📝 Ingredienti:\n`;
+            recipe.ingredients.forEach(ingredient => {
+              content += `      • ${ingredient}\n`;
+            });
+          }
+          
+          if (recipe.instructions.length > 0) {
+            content += `   👨‍🍳 Preparazione:\n`;
+            recipe.instructions.forEach((instruction, index) => {
+              content += `      ${index + 1}. ${instruction}\n`;
+            });
+          }
+          
+          content += `\n`;
+        });
+        content += `\n`;
+      });
+
+      await Share.share({
+        message: content,
+        title: 'Le mie ricette',
+      });
+    } catch (error) {
+      Alert.alert('Errore', 'Impossibile esportare le ricette');
+    }
   };
 
   const handleAddRecipe = () => {
@@ -437,6 +501,12 @@ export default function MyRecipesScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Le mie ricette</Text>
+        <TouchableOpacity 
+          style={styles.exportButton}
+          onPress={handleRecipesExport}
+        >
+          <Text style={styles.exportButtonText}>💬</Text>
+        </TouchableOpacity>
       </View>
 
       {recipes.length === 0 ? (
@@ -493,6 +563,22 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
+    flex: 1,
+  },
+  exportButton: {
+    backgroundColor: '#0b67b2',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  exportButtonText: {
+    fontSize: 18,
   },
   fabContainer: {
     position: 'absolute',

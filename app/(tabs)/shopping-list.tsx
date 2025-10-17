@@ -271,6 +271,7 @@ export default function ShoppingListScreen() {
             <TextInput
               style={styles.input}
               placeholder="Nome prodotto"
+              placeholderTextColor="#999"
               value={newItemName}
               onChangeText={handleNameChange}
             />
@@ -297,6 +298,7 @@ export default function ShoppingListScreen() {
               <TextInput
                 style={[styles.input, styles.quantityInput]}
                 placeholder="Quantità"
+                placeholderTextColor="#999"
                 value={newItemQuantity}
                 onChangeText={setNewItemQuantity}
                 keyboardType="numeric"
@@ -304,6 +306,7 @@ export default function ShoppingListScreen() {
               <TextInput
                 style={[styles.input, styles.unitInput]}
                 placeholder="Unità (kg, pz, etc.)"
+                placeholderTextColor="#999"
                 value={newItemUnit}
                 onChangeText={setNewItemUnit}
               />

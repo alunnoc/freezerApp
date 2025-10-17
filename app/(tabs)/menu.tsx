@@ -196,6 +196,7 @@ export default function MenuScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Inserisci piatto / ricetta"
+                placeholderTextColor="#999"
                 value={tempValue}
                 onChangeText={handleTextChange}
                 returnKeyType="done"
