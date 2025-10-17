@@ -1006,7 +1006,8 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f0faff" },
   headerSection: {
-    padding: 20,
+    paddingTop: 25,
+    paddingHorizontal: 20,
     paddingBottom: 10,
   },
   homeContent: {
@@ -1015,7 +1016,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
   },
-  title: { fontSize: 26, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+  title: { fontSize: 26, fontWeight: "bold", marginBottom: 20, textAlign: "center", marginTop: 15 },
   listContainer: {
     flex: 1,
     paddingHorizontal: 20,

@@ -138,7 +138,7 @@ export default function MenuScreen() {
             style={styles.exportButton}
             onPress={handleMenuExport}
           >
-            <Text style={styles.exportButtonText}>💬</Text>
+            <Text style={styles.exportButtonText}>📤</Text>
           </TouchableOpacity>
         </View>
 
@@ -296,14 +296,23 @@ export default function MenuScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0faff', padding: 16 },
+  container: { flex: 1, backgroundColor: '#f0faff' },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    paddingTop: 25,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
   },
-  title: { fontSize: 24, fontWeight: '700', flex: 1, textAlign: 'center' },
+  title: { 
+    fontSize: 26, 
+    fontWeight: 'bold', 
+    color: '#333',
+    flex: 1, 
+    textAlign: 'center',
+    marginTop: 15,
+  },
   exportButton: {
     backgroundColor: '#0b67b2',
     borderRadius: 20,

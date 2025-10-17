@@ -505,7 +505,7 @@ export default function MyRecipesScreen() {
           style={styles.exportButton}
           onPress={handleRecipesExport}
         >
-          <Text style={styles.exportButtonText}>💬</Text>
+          <Text style={styles.exportButtonText}>📤</Text>
         </TouchableOpacity>
       </View>
 
@@ -538,7 +538,7 @@ export default function MyRecipesScreen() {
           style={styles.fabButton}
           onPress={() => setShowAddForm(true)}
         >
-          <Text style={styles.fabIcon}>➕</Text>
+          <Text style={styles.fabIcon}>+</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -548,22 +548,23 @@ export default function MyRecipesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f0faff',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingTop: 25,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#333',
+    textAlign: 'center',
     flex: 1,
+    alignSelf: 'center',
+    marginTop: 15,
   },
   exportButton: {
     backgroundColor: '#0b67b2',
@@ -590,18 +591,19 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#0077cc',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
   },
   fabIcon: {
     fontSize: 24,
-    color: '#fff',
+    color: 'white',
+    fontWeight: 'bold',
   },
   backButton: {
     paddingVertical: 8,

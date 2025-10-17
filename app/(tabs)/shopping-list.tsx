@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
     Alert,
+    Clipboard,
     FlatList,
     SafeAreaView,
     Share,
@@ -46,6 +47,8 @@ export default function ShoppingListScreen() {
   const [newItemUnit, setNewItemUnit] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importText, setImportText] = useState('');
 
   // Filtra i suggerimenti basati sul testo inserito
   const filteredSuggestions = newItemName.length > 0 
@@ -116,6 +119,24 @@ export default function ShoppingListScreen() {
     saveShoppingList(activeItems);
   };
 
+  const clearAll = () => {
+    Alert.alert(
+      'Conferma eliminazione',
+      'Sei sicuro di voler eliminare TUTTI gli elementi della lista? Questa azione non può essere annullata.',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Elimina tutto',
+          style: 'destructive',
+          onPress: () => {
+            saveShoppingList([]);
+            Alert.alert('Lista svuotata', 'Tutti gli elementi sono stati eliminati.');
+          },
+        },
+      ]
+    );
+  };
+
   const shareShoppingList = async () => {
     if (shoppingList.length === 0) {
       Alert.alert('Lista vuota', 'Non ci sono elementi da condividere');
@@ -155,6 +176,114 @@ export default function ShoppingListScreen() {
       });
     } catch (error) {
       Alert.alert('Errore', 'Impossibile condividere la lista');
+    }
+  };
+
+  // Funzione per parsare il testo importato
+  const parseImportedText = (text: string): ShoppingItem[] => {
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const items: ShoppingItem[] = [];
+    
+    let currentSection = '';
+    
+    for (const line of lines) {
+      // Salta header e sezioni
+      if (line.includes('LISTA DELLA SPESA') || 
+          line.includes('DA COMPRARE') || 
+          line.includes('GIÀ COMPRATO') ||
+          line.includes('Totale:') ||
+          line.includes('Da comprare:') ||
+          line.includes('Comprati:')) {
+        continue;
+      }
+      
+      // Rileva sezione
+      if (line.includes('📝 DA COMPRARE')) {
+        currentSection = 'pending';
+        continue;
+      }
+      if (line.includes('✅ GIÀ COMPRATO')) {
+        currentSection = 'completed';
+        continue;
+      }
+      
+      // Parsa elementi della lista (formato: "1. Nome prodotto (quantità unità)")
+      const itemMatch = line.match(/^\d+\.\s+(.+?)(?:\s+\(([^)]+)\))?$/);
+      if (itemMatch) {
+        const name = itemMatch[1].trim();
+        const quantityInfo = itemMatch[2] ? itemMatch[2].trim() : '';
+        
+        let quantity = '';
+        let unit = '';
+        
+        if (quantityInfo) {
+          // Prova a separare quantità e unità
+          const quantityMatch = quantityInfo.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+          if (quantityMatch) {
+            quantity = quantityMatch[1];
+            unit = quantityMatch[2] || '';
+          } else {
+            quantity = quantityInfo;
+          }
+        }
+        
+        const newItem: ShoppingItem = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          name,
+          quantity: quantity || undefined,
+          unit: unit || undefined,
+          completed: currentSection === 'completed'
+        };
+        
+        items.push(newItem);
+      }
+    }
+    
+    return items;
+  };
+
+  // Funzione per gestire l'import
+  const handleImport = async () => {
+    try {
+      if (!importText.trim()) {
+        Alert.alert('Errore', 'Incolla il testo della lista da importare');
+        return;
+      }
+
+      const importedItems = parseImportedText(importText);
+      
+      if (importedItems.length === 0) {
+        Alert.alert('Errore', 'Nessun elemento valido trovato nel testo. Assicurati che il formato sia corretto.');
+        return;
+      }
+
+      // Aggiungi gli elementi importati alla lista esistente
+      const updatedList = [...shoppingList, ...importedItems];
+      saveShoppingList(updatedList);
+      
+      setImportText('');
+      setShowImportModal(false);
+      
+      Alert.alert(
+        'Import completato!', 
+        `Sono stati importati ${importedItems.length} elementi nella lista della spesa.`
+      );
+    } catch (error) {
+      Alert.alert('Errore', 'Impossibile importare la lista. Controlla il formato del testo.');
+    }
+  };
+
+  // Funzione per incollare dalla clipboard
+  const pasteFromClipboard = async () => {
+    try {
+      const clipboardContent = await Clipboard.getString();
+      if (clipboardContent) {
+        setImportText(clipboardContent);
+      } else {
+        Alert.alert('Clipboard vuoto', 'Non c\'è nulla da incollare nella clipboard');
+      }
+    } catch (error) {
+      Alert.alert('Errore', 'Impossibile accedere alla clipboard');
     }
   };
 
@@ -227,13 +356,10 @@ export default function ShoppingListScreen() {
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => {
-              setShowAddForm(true);
-              setShowSuggestions(true); // Mostra i suggerimenti subito
-            }}
+            style={styles.importButton}
+            onPress={() => setShowImportModal(true)}
           >
-            <Text style={styles.addButtonText}>+ Aggiungi</Text>
+            <Text style={styles.importButtonText}>📥 Importa</Text>
           </TouchableOpacity>
           
           {completedItems > 0 && (
@@ -244,6 +370,7 @@ export default function ShoppingListScreen() {
               <Text style={styles.clearButtonText}>Pulisci completati</Text>
             </TouchableOpacity>
           )}
+          
         </View>
       </View>
 
@@ -330,6 +457,78 @@ export default function ShoppingListScreen() {
           </View>
         </View>
       )}
+
+      {/* Modal Import */}
+      {showImportModal && (
+        <View style={styles.importModalOverlay}>
+          <View style={styles.importModalContent}>
+            <Text style={styles.importModalTitle}>Importa Lista</Text>
+            <Text style={styles.importModalSubtitle}>
+              Incolla il testo della lista esportata per importarla
+            </Text>
+            
+            <TextInput
+              style={styles.importTextArea}
+              placeholder="Incolla qui il testo della lista della spesa..."
+              placeholderTextColor="#999"
+              value={importText}
+              onChangeText={setImportText}
+              multiline
+              numberOfLines={8}
+              textAlignVertical="top"
+            />
+            
+            <View style={styles.importButtons}>
+              <TouchableOpacity 
+                style={styles.pasteButton}
+                onPress={pasteFromClipboard}
+              >
+                <Text style={styles.pasteButtonText}>📋 Incolla</Text>
+              </TouchableOpacity>
+              
+              <View style={styles.importActionButtons}>
+                <TouchableOpacity 
+                  style={styles.cancelImportButton}
+                  onPress={() => {
+                    setShowImportModal(false);
+                    setImportText('');
+                  }}
+                >
+                  <Text style={styles.cancelImportButtonText}>Annulla</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.confirmImportButton}
+                  onPress={handleImport}
+                >
+                  <Text style={styles.confirmImportButtonText}>Importa</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Pulsante aggiungi rotondo */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => {
+          setShowAddForm(true);
+          setShowSuggestions(true);
+        }}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
+
+      {/* Pulsante elimina tutto rotondo */}
+      {shoppingList.length > 0 && (
+        <TouchableOpacity
+          style={styles.clearAllFab}
+          onPress={clearAll}
+        >
+          <Text style={styles.clearAllFabText}>🗑️</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -340,15 +539,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0faff',
   },
   header: {
-    padding: 20,
+    paddingTop: 25,
+    paddingHorizontal: 20,
     paddingBottom: 10,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 20,
     textAlign: 'center',
+    marginTop: 15,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -380,46 +580,67 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    marginBottom: 20,
     gap: 10,
-    marginBottom: 10,
-  },
-  addButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    flex: 1,
-    minWidth: 120,
-  },
-  addButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    textAlign: 'center',
   },
   shareButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0077cc',
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    flex: 1,
-    minWidth: 120,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    minWidth: 80,
+    flex: 0,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
   },
   shareButtonText: {
     color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  importButton: {
+    backgroundColor: '#0b67b2',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    minWidth: 80,
+    flex: 0,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+  },
+  importButtonText: {
+    color: 'white',
+    fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
   },
   clearButton: {
     backgroundColor: '#FF9800',
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    flex: 1,
-    minWidth: 120,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    minWidth: 80,
+    flex: 0,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
   },
   clearButtonText: {
     color: 'white',
+    fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -428,6 +649,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
+    paddingBottom: 100, // Spazio per i FAB in basso
   },
   itemCard: {
     backgroundColor: 'white',
@@ -576,6 +798,143 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: 'white',
     fontWeight: '600',
+  },
+  // Stili per il modal di import
+  importModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  importModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    margin: 20,
+    maxWidth: 400,
+    width: '100%',
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  importModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
+    color: '#333',
+  },
+  importModalSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
+  },
+  importTextArea: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    backgroundColor: '#f9f9f9',
+    marginBottom: 16,
+    minHeight: 120,
+  },
+  importButtons: {
+    gap: 12,
+  },
+  pasteButton: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  pasteButtonText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
+  },
+  importActionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelImportButton: {
+    flex: 1,
+    backgroundColor: '#6c757d',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  cancelImportButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmImportButton: {
+    flex: 1,
+    backgroundColor: '#0b67b2',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  confirmImportButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Stili per il FAB (Floating Action Button)
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#0077cc',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+    zIndex: 1000,
+  },
+  fabText: {
+    fontSize: 24,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  // Stili per il FAB "Elimina tutto"
+  clearAllFab: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#dc3545',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+    zIndex: 1000,
+  },
+  clearAllFabText: {
+    fontSize: 20,
+    color: 'white',
   },
   suggestionsContainer: {
     marginBottom: 15,
