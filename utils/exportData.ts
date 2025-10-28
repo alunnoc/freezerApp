@@ -4,6 +4,7 @@ export interface WeeklyMenu {
   [weekday: string]: {
     breakfast?: string;
     lunch?: string;
+    menuBimbo?: string;
     dinner?: string;
   };
 }
@@ -64,6 +65,9 @@ export const exportToCSV = (fridge: Item[], freezer: Item[], pantry: Item[], wee
     Object.entries(weeklyMenu).forEach(([day, menu]) => {
       if (menu.lunch) {
         csvRows.push(`"${day}","Pranzo","${menu.lunch}"`);
+      }
+      if (menu.menuBimbo) {
+        csvRows.push(`"${day}","Menù bimbo","${menu.menuBimbo}"`);
       }
       if (menu.dinner) {
         csvRows.push(`"${day}","Cena","${menu.dinner}"`);
@@ -146,6 +150,9 @@ export const exportToDetailedCSV = (fridge: Item[], freezer: Item[], pantry: Ite
     Object.entries(weeklyMenu).forEach(([day, menu]) => {
       if (menu.lunch) {
         csvRows.push(`"${day}","Pranzo","${menu.lunch}"`);
+      }
+      if (menu.menuBimbo) {
+        csvRows.push(`"${day}","Menù bimbo","${menu.menuBimbo}"`);
       }
       if (menu.dinner) {
         csvRows.push(`"${day}","Cena","${menu.dinner}"`);
@@ -253,10 +260,13 @@ export const generateSummary = (fridge: Item[], freezer: Item[], pantry: Item[],
     const weekDays = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
     weekDays.forEach(day => {
       const dayMenu = weeklyMenu[day];
-      if (dayMenu && (dayMenu.lunch || dayMenu.dinner)) {
+      if (dayMenu && (dayMenu.lunch || dayMenu.menuBimbo || dayMenu.dinner)) {
         summary += `\n${day}:\n`;
         if (dayMenu.lunch) {
           summary += `  Pranzo: ${dayMenu.lunch}\n`;
+        }
+        if (dayMenu.menuBimbo) {
+          summary += `  Menù bimbo: ${dayMenu.menuBimbo}\n`;
         }
         if (dayMenu.dinner) {
           summary += `  Cena: ${dayMenu.dinner}\n`;

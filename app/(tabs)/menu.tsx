@@ -7,6 +7,7 @@ import { generateSummary } from '../../utils/exportData';
 type MenuDay = {
   breakfast?: string;
   lunch?: string;
+  menuBimbo?: string;
   dinner?: string;
 };
 
@@ -222,10 +223,10 @@ export default function MenuScreen() {
                 </TouchableOpacity>
               </View>
 
-              {(['lunch','dinner'] as (keyof MenuDay)[]).map(field => (
+              {(['lunch','menuBimbo','dinner'] as (keyof MenuDay)[]).map(field => (
                 <View key={field} style={styles.row}>
                   <Text style={styles.label}>
-                    {field === 'lunch' ? 'Pranzo' : 'Cena'}
+                    {field === 'lunch' ? 'Pranzo' : field === 'menuBimbo' ? 'Menù bimbo' : 'Cena'}
                   </Text>
                   <TouchableOpacity
                     style={[
