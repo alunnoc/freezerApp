@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 
-type Item = { id: string; name: string; qty: number; unit: string; category?: string; expiryDate?: string; frozenAt?: string };
+type Item = { 
+  id: string; 
+  name: string; 
+  qty: number; 
+  unit: string; 
+  category?: string; 
+  expiryDate?: string; 
+  frozenAt?: string;
+  addedAt?: string;
+};
 
 // Versione con persistenza locale usando localStorage (web) o AsyncStorage (mobile)
 export function useStorage<T>(key: string, defaultValue: T) {

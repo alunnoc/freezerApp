@@ -6,6 +6,7 @@ import React, { useState } from "react";
 import {
     Alert,
     FlatList,
+    Modal,
     Platform,
     SafeAreaView,
     ScrollView,
@@ -18,7 +19,7 @@ import {
 } from "react-native";
 import { OfficialCameraScanner } from "../../components/OfficialCameraScanner";
 import { Item, useStorage } from "../../hooks/useStorage";
-import { exportToCSV, exportToJSON, generateSummary } from "../../utils/exportData";
+import { exportToCSV, exportToDetailedCSV, exportToJSON, generateSummary, importFromCSV, importFromJSON } from "../../utils/exportData";
 import { lookupProduct } from "../../utils/productLookup";
 
 type SectionKey = "fridge" | "freezer" | "pantry" | "stats";
@@ -47,9 +48,13 @@ export default function Home() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [showExportOptions, setShowExportOptions] = useState(false);
+  const [showImportOptions, setShowImportOptions] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFormat, setImportFormat] = useState<'json' | 'csv'>('json');
+  const [importText, setImportText] = useState("");
 
   // Funzione per gestire l'esportazione
-  const handleExport = async (format: 'json' | 'csv' | 'summary') => {
+  const handleExport = async (format: 'json' | 'csv' | 'csv-detailed' | 'summary') => {
     try {
       let content: string;
       let filename: string;
@@ -62,6 +67,10 @@ export default function Home() {
         case 'csv':
           content = exportToCSV(fridge, freezer, pantry);
           filename = `frigo-dati-${new Date().toISOString().split('T')[0]}.csv`;
+          break;
+        case 'csv-detailed':
+          content = exportToDetailedCSV(fridge, freezer, pantry);
+          filename = `frigo-dati-completi-${new Date().toISOString().split('T')[0]}.csv`;
           break;
         case 'summary':
           content = generateSummary(fridge, freezer, pantry);
@@ -78,30 +87,89 @@ export default function Home() {
     }
   };
 
+  // Funzione per gestire l'import
+  const handleImport = async (format: 'json' | 'csv') => {
+    // Forza la sezione Statistiche per evitare il ritorno alla Home
+    setSection('stats' as SectionKey);
+    setImportFormat(format);
+    setImportText("");
+    setShowImportModal(true);
+    setShowImportOptions(false);
+  };
+
+  // Funzione per processare l'import dal testo
+  const processImport = () => {
+    if (!importText.trim()) {
+      Alert.alert('Errore', 'Incolla il contenuto del file da importare');
+      return;
+    }
+
+    let importedData: { fridge: Item[], freezer: Item[], pantry: Item[], weeklyMenu?: any } | null = null;
+
+    if (importFormat === 'json') {
+      importedData = importFromJSON(importText);
+    } else {
+      importedData = importFromCSV(importText);
+    }
+
+    if (!importedData) {
+      Alert.alert('Errore', 'Impossibile importare i dati. Verifica che il formato sia corretto.');
+      return;
+    }
+
+    // Conferma l'import
+    Alert.alert(
+      'Conferma Import',
+      `Vuoi importare ${importedData.fridge.length} prodotti nel frigo, ${importedData.freezer.length} nel freezer e ${importedData.pantry.length} nella dispensa?\n\nI dati attuali verranno sostituiti.`,
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Importa',
+          onPress: () => {
+            // Salva i dati importati
+            saveFridge(importedData!.fridge);
+            saveFreezer(importedData!.freezer);
+            savePantry(importedData!.pantry);
+            
+            Alert.alert('Successo', 'Dati importati con successo!');
+            setShowImportModal(false);
+            setImportText("");
+          }
+        }
+      ]
+    );
+  };
+
   // Resetta sempre alla home quando si torna alla tab
   useFocusEffect(
     React.useCallback(() => {
-      setSection(null);
-      setShowAddForm(false);
-      setEditingItem(null);
-      setShowScanner(false);
-      setSearchQuery("");
-      setFilterCategory(null);
-    }, [])
+      // Non resettare mentre è aperto l'import modal
+      if (!showImportModal) {
+        setSection(null);
+        setShowAddForm(false);
+        setEditingItem(null);
+        setShowScanner(false);
+        setSearchQuery("");
+        setFilterCategory(null);
+        setShowExportOptions(false);
+        setShowImportOptions(false);
+        setImportText("");
+      }
+    }, [showImportModal])
   );
 
   // Usa il hook personalizzato per la persistenza
   const { data: fridge, saveData: saveFridge, loading: fridgeLoading } = useStorage<Item[]>("fridge", [
-    { id: "1", name: "Latte", qty: 1, unit: "L", category: "dairy" },
-    { id: "2", name: "Insalata", qty: 2, unit: "pz", category: "vegetables" },
+    { id: "1", name: "Latte", qty: 1, unit: "L", category: "dairy", addedAt: "01/01/2024" },
+    { id: "2", name: "Insalata", qty: 2, unit: "pz", category: "vegetables", addedAt: "01/01/2024" },
   ]);
   const { data: freezer, saveData: saveFreezer, loading: freezerLoading } = useStorage<Item[]>("freezer", [
-    { id: "3", name: "Piselli surgelati", qty: 1, unit: "busta", category: "frozen" },
-    { id: "4", name: "Filetti di merluzzo", qty: 6, unit: "pz", category: "fish" },
+    { id: "3", name: "Piselli surgelati", qty: 1, unit: "busta", category: "frozen", frozenAt: "01/01/2024", addedAt: "01/01/2024" },
+    { id: "4", name: "Filetti di merluzzo", qty: 6, unit: "pz", category: "fish", frozenAt: "01/01/2024", addedAt: "01/01/2024" },
   ]);
   const { data: pantry, saveData: savePantry, loading: pantryLoading } = useStorage<Item[]>("pantry", [
-    { id: "5", name: "Pasta", qty: 2, unit: "kg", category: "other" },
-    { id: "6", name: "Riso", qty: 1, unit: "kg", category: "other" },
+    { id: "5", name: "Pasta", qty: 2, unit: "kg", category: "other", addedAt: "01/01/2024" },
+    { id: "6", name: "Riso", qty: 1, unit: "kg", category: "other", addedAt: "01/01/2024" },
   ]);
 
   // form di aggiunta
@@ -150,6 +218,7 @@ export default function Home() {
       category: selectedCategory,
       expiryDate: expiryDate || undefined,
       frozenAt: section === "freezer" ? formatToday() : undefined,
+      addedAt: formatToday(),
     };
     setList(section, [newItem, ...getList(section)]);
     setNameInput("");
@@ -330,6 +399,9 @@ export default function Home() {
           {section === "freezer" && item.frozenAt && (
             <Text style={styles.frozenAtText}>In freezer dal {item.frozenAt}</Text>
           )}
+          {item.addedAt && (
+            <Text style={styles.addedAtText}>Aggiunto il {item.addedAt}</Text>
+          )}
           <View style={styles.itemFooter}>
             <Text style={styles.categoryName}>{categoryInfo.name}</Text>
             <TouchableOpacity 
@@ -476,12 +548,20 @@ export default function Home() {
         <SafeAreaView style={styles.container}>
           <View style={styles.headerSection}>
             <Text style={styles.title}>Statistiche</Text>
-            <TouchableOpacity
-              style={styles.exportBtn}
-              onPress={() => setShowExportOptions(!showExportOptions)}
-            >
-              <Text style={styles.exportBtnText}>📤 Export</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={styles.exportBtn}
+                onPress={() => setShowExportOptions(!showExportOptions)}
+              >
+                <Text style={styles.exportBtnText}>📤 Export</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.importBtn}
+                onPress={() => setShowImportOptions(!showImportOptions)}
+              >
+                <Text style={styles.importBtnText}>📥 Import</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {showExportOptions && (
@@ -500,9 +580,32 @@ export default function Home() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.exportOption}
+                onPress={() => handleExport('csv-detailed')}
+              >
+                <Text style={styles.exportOptionText}>📋 CSV Completo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.exportOption}
                 onPress={() => handleExport('summary')}
               >
                 <Text style={styles.exportOptionText}>📋 Riepilogo</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {showImportOptions && (
+            <View style={styles.importOptions}>
+              <TouchableOpacity
+                style={styles.importOption}
+                onPress={() => handleImport('json')}
+              >
+                <Text style={styles.importOptionText}>📄 Importa JSON</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.importOption}
+                onPress={() => handleImport('csv')}
+              >
+                <Text style={styles.importOptionText}>📊 Importa CSV</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -646,6 +749,51 @@ export default function Home() {
           >
             <Text style={styles.backFabIcon}>← Indietro</Text>
           </TouchableOpacity>
+
+          {/* Modal di import - solo nella sezione statistiche */}
+          <Modal
+            transparent
+            animationType="fade"
+            visible={showImportModal}
+            onRequestClose={() => setShowImportModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>
+                  Importa Dati {importFormat === 'json' ? 'JSON' : 'CSV'}
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  Incolla il contenuto del file {importFormat === 'json' ? 'JSON' : 'CSV'} esportato:
+                </Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  value={importText}
+                  onChangeText={setImportText}
+                  placeholder={`Incolla qui il contenuto del file ${importFormat.toUpperCase()}...`}
+                  multiline
+                  numberOfLines={10}
+                  textAlignVertical="top"
+                />
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={styles.modalButtonCancel}
+                    onPress={() => {
+                      setShowImportModal(false);
+                      setImportText("");
+                    }}
+                  >
+                    <Text style={styles.modalButtonText}>Annulla</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalButtonConfirm}
+                    onPress={processImport}
+                  >
+                    <Text style={styles.modalButtonText}>Importa</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </SafeAreaView>
       );
     }
@@ -999,6 +1147,7 @@ export default function Home() {
         </TouchableOpacity>
         
       </View>
+
     </SafeAreaView>
   );
 }
@@ -1164,6 +1313,7 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 16, fontWeight: "600", flex: 1, color: "#333" },
   itemQty: { fontSize: 13, color: "#555", marginTop: 2 },
   frozenAtText: { fontSize: 11, color: "#777", marginTop: 2 },
+  addedAtText: { fontSize: 11, color: "#666", marginTop: 2, fontStyle: "italic" },
   itemFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1406,8 +1556,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
+    flex: 1,
+    marginRight: 8,
+  },
+  importBtn: {
+    backgroundColor: "#28a745",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    flex: 1,
+    marginLeft: 8,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   exportBtnText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  importBtnText: {
     color: "white",
     fontWeight: "600",
     fontSize: 14,
@@ -1433,6 +1602,102 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     color: "#333",
+  },
+  importOptions: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  importOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: "#f8f9fa",
+  },
+  importOptionText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+  },
+  // Stili per il modal di import
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+    elevation: 9999,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    maxHeight: '80%',
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalTextInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    backgroundColor: '#f9f9f9',
+    marginBottom: 16,
+    minHeight: 200,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#6c757d',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    flex: 1,
+    marginRight: 8,
+  },
+  modalButtonConfirm: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    flex: 1,
+    marginLeft: 8,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   scrollView: {
     flex: 1,
