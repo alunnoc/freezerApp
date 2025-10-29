@@ -2,7 +2,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Alert,
     FlatList,
@@ -31,6 +31,9 @@ const CATEGORIES = [
   { id: "fish", name: "Pesce", color: "#e1f5fe", icon: "🐟" },
   { id: "frozen", name: "Surgelati", color: "#f3e5f5", icon: "❄️" },
   { id: "beverages", name: "Bevande", color: "#e0f2f1", icon: "🥤" },
+  { id: "legumes", name: "Legumi", color: "#ffe0b2", icon: "🥜" },
+  { id: "pasta", name: "Pasta", color: "#fff9c4", icon: "🍝" },
+  { id: "condiment", name: "Condimento", color: "#ffcdd2", icon: "🧂" },
   { id: "other", name: "Altro", color: "#fafafa", icon: "📦" },
 ];
 
@@ -52,6 +55,20 @@ export default function Home() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFormat, setImportFormat] = useState<'json' | 'csv'>('json');
   const [importText, setImportText] = useState("");
+  const [sortKey, setSortKey] = useState<'name' | 'expiry' | 'category' | 'qty' | 'addedAt'>('name');
+  const [sortAsc, setSortAsc] = useState(true);
+
+  // Imposta ordinamento di default per sezione
+  useEffect(() => {
+    if (!section) return;
+    if (section === 'freezer') {
+      setSortKey('addedAt');
+      setSortAsc(true);
+    } else if (section === 'fridge' || section === 'pantry') {
+      setSortKey('expiry');
+      setSortAsc(true);
+    }
+  }, [section]);
 
   // Funzione per gestire l'esportazione
   const handleExport = async (format: 'json' | 'csv' | 'csv-detailed' | 'summary') => {
@@ -801,6 +818,41 @@ export default function Home() {
     const data = section === "fridge" ? fridge : section === "freezer" ? freezer : pantry;
     const loading = section === "fridge" ? fridgeLoading : section === "freezer" ? freezerLoading : pantryLoading;
     const filteredData = filterItems(data);
+    const toMillis = (d?: string) => {
+      if (!d) return Number.POSITIVE_INFINITY;
+      const parts = d.split('-');
+      if (parts.length !== 3) return Number.POSITIVE_INFINITY;
+      const [dd, mm, yyyy] = parts;
+      const date = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
+      return isNaN(date.getTime()) ? Number.POSITIVE_INFINITY : date.getTime();
+    };
+    const sortedData = [...filteredData].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case 'name':
+          cmp = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+          break;
+        case 'category':
+          cmp = (a.category || '').toLowerCase().localeCompare((b.category || '').toLowerCase());
+          break;
+        case 'qty':
+          cmp = (a.qty || 0) - (b.qty || 0);
+          break;
+        case 'addedAt': {
+          const atA = toMillis(a.addedAt);
+          const atB = toMillis(b.addedAt);
+          cmp = atA - atB;
+          break;
+        }
+        case 'expiry': {
+          const exA = toMillis(a.expiryDate);
+          const exB = toMillis(b.expiryDate);
+          cmp = exA - exB; // prima chi scade prima
+          break;
+        }
+      }
+      return sortAsc ? cmp : -cmp;
+    });
     
     if (loading) {
       return (
@@ -861,12 +913,54 @@ export default function Home() {
               placeholderTextColor="#999"
             />
           </View>
+
+          {/* Ordinamento */}
+          <View style={styles.sortRow}>
+            <Text style={styles.sortLabel}>Ordina per:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScroll}>
+              <View style={styles.sortChips}>
+                <TouchableOpacity
+                  style={[styles.sortChip, sortKey === 'name' && styles.sortChipActive]}
+                  onPress={() => setSortKey('name')}
+                >
+                  <Text style={[styles.sortChipText, sortKey === 'name' && styles.sortChipTextActive]}>Nome</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.sortChip, sortKey === 'expiry' && styles.sortChipActive]}
+                  onPress={() => setSortKey('expiry')}
+                >
+                  <Text style={[styles.sortChipText, sortKey === 'expiry' && styles.sortChipTextActive]}>Scadenza</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.sortChip, sortKey === 'category' && styles.sortChipActive]}
+                  onPress={() => setSortKey('category')}
+                >
+                  <Text style={[styles.sortChipText, sortKey === 'category' && styles.sortChipTextActive]}>Categoria</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.sortChip, sortKey === 'qty' && styles.sortChipActive]}
+                  onPress={() => setSortKey('qty')}
+                >
+                  <Text style={[styles.sortChipText, sortKey === 'qty' && styles.sortChipTextActive]}>Quantità</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.sortChip, sortKey === 'addedAt' && styles.sortChipActive]}
+                  onPress={() => setSortKey('addedAt')}
+                >
+                  <Text style={[styles.sortChipText, sortKey === 'addedAt' && styles.sortChipTextActive]}>Aggiunto il</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+            <TouchableOpacity style={styles.sortOrderBtn} onPress={() => setSortAsc(v => !v)}>
+              <Text style={styles.sortOrderText}>{sortAsc ? '↑' : '↓'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Lista elementi */}
         <View style={styles.listContainer}>
           <FlatList
-            data={filteredData}
+            data={sortedData}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
             ListEmptyComponent={
@@ -1261,6 +1355,59 @@ const styles = StyleSheet.create({
   filterScroll: {
     marginBottom: 12,
     maxHeight: 60,
+  },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  sortLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginRight: 8,
+  },
+  sortScroll: {
+    flex: 1,
+  },
+  sortChips: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingRight: 8,
+  },
+  sortChip: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  sortChipActive: {
+    backgroundColor: '#0077cc',
+    borderColor: '#0077cc',
+  },
+  sortChipText: {
+    color: '#333',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  sortChipTextActive: {
+    color: 'white',
+  },
+  sortOrderBtn: {
+    backgroundColor: '#0077cc',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  sortOrderText: {
+    color: 'white',
+    fontWeight: '700',
   },
   filterBtn: {
     flexDirection: "row",
