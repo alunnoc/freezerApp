@@ -32,6 +32,7 @@ export default function MenuScreen() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showUnifiedTab, setShowUnifiedTab] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Calcola il nome del giorno odierno in italiano (array inizia da Lunedì)
   const todayName = useMemo(() => {
@@ -113,11 +114,36 @@ export default function MenuScreen() {
     return result;
   }, [fridgeData, freezerData, pantryData]);
 
+  // Prodotti filtrati
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return allProducts;
+    }
+    const query = searchQuery.toLowerCase();
+    return allProducts.filter(product =>
+      product.name?.toLowerCase().includes(query) ||
+      product.category?.toLowerCase().includes(query)
+    );
+  }, [allProducts, searchQuery]);
+
+  // Ricette filtrate
+  const filteredRecipes = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return myRecipes || [];
+    }
+    const query = searchQuery.toLowerCase();
+    return (myRecipes || []).filter(recipe =>
+      recipe.name?.toLowerCase().includes(query) ||
+      recipe.category?.toLowerCase().includes(query)
+    );
+  }, [myRecipes, searchQuery]);
+
   const startEdit = (day: string, field: keyof MenuDay, current?: string) => {
     setEditing({ day, field });
     setTempValue(current ?? '');
     setShowSuggestions(true);
     setShowUnifiedTab(true);
+    setSearchQuery('');
   };
 
   const saveEdit = () => {
@@ -131,6 +157,7 @@ export default function MenuScreen() {
     setTempValue('');
     setShowSuggestions(false);
     setShowUnifiedTab(false);
+    setSearchQuery('');
   };
 
   const selectProduct = (product: any) => {
@@ -275,19 +302,34 @@ export default function MenuScreen() {
           <TouchableOpacity
             style={styles.overlay}
             activeOpacity={1}
-            onPress={() => setShowUnifiedTab(false)}
+            onPress={() => {
+              setShowUnifiedTab(false);
+              setSearchQuery('');
+            }}
           />
         )}
 
         {/* Tab unificata con prodotti e ricette */}
         {editing && showUnifiedTab && (
           <View style={styles.unifiedContainer}>
+            {/* Barra di ricerca */}
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Cerca prodotti o ricette..."
+                placeholderTextColor="#999"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus={false}
+              />
+            </View>
+
             {/* Prima riga: Prodotti */}
             {allProducts.length > 0 ? (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>I tuoi prodotti:</Text>
                 <FlatList
-                  data={allProducts}
+                  data={filteredProducts}
                   keyExtractor={(item, index) => `${item.name}-${index}`}
                   renderItem={({ item }) => (
                     <TouchableOpacity
@@ -335,7 +377,7 @@ export default function MenuScreen() {
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Le tue ricette:</Text>
                 <FlatList
-                  data={myRecipes}
+                  data={filteredRecipes}
                   keyExtractor={(item, index) => `${item.id}-${index}`}
                   renderItem={({ item }) => (
                     <TouchableOpacity
@@ -630,13 +672,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#0b67b2',
     borderRadius: 12,
     padding: 12,
-    maxHeight: 280,
+    maxHeight: 420,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
     zIndex: 2,
+  },
+  searchContainer: {
+    marginBottom: 12,
+  },
+  searchInput: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#333',
   },
   section: {
     marginBottom: 16,
