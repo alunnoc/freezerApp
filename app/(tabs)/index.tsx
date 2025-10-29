@@ -57,6 +57,7 @@ export default function Home() {
   const [importText, setImportText] = useState("");
   const [sortKey, setSortKey] = useState<'name' | 'expiry' | 'category' | 'qty' | 'addedAt'>('name');
   const [sortAsc, setSortAsc] = useState(true);
+  const [expandedExpiryStat, setExpandedExpiryStat] = useState<'expired' | 'expiringSoon' | 'expiringThisWeek' | null>(null);
 
   // Imposta ordinamento di default per sezione
   useEffect(() => {
@@ -171,6 +172,7 @@ export default function Home() {
         setShowExportOptions(false);
         setShowImportOptions(false);
         setImportText("");
+        setExpandedExpiryStat(null);
       }
       // Forza un reload dei dati quando si rientra nella tab
       try {
@@ -543,6 +545,9 @@ export default function Home() {
           expiringSoon: expiringSoon.length,
           expiringThisWeek: expiringThisWeek.length,
           totalWithExpiry: allItems.filter(item => item.expiryDate).length,
+          expiredItems: expired,
+          expiringSoonItems: expiringSoon,
+          expiringThisWeekItems: expiringThisWeek,
         };
       };
 
@@ -683,25 +688,129 @@ export default function Home() {
             <View style={styles.statsSection}>
               <Text style={styles.sectionTitle}>Scadenze</Text>
               <View style={styles.statsGrid}>
-                <StatCard
-                  title="Scaduti"
-                  value={expiryStats.expired}
-                  subtitle="prodotti"
-                  color="#e53935"
-                />
-                <StatCard
-                  title="Scadono Presto"
-                  value={expiryStats.expiringSoon}
-                  subtitle="entro 3 giorni"
-                  color="#ff9800"
-                />
-                <StatCard
-                  title="Questa Settimana"
-                  value={expiryStats.expiringThisWeek}
-                  subtitle="entro 7 giorni"
-                  color="#ffc107"
-                />
+                <TouchableOpacity
+                  onPress={() => setExpandedExpiryStat(expandedExpiryStat === 'expired' ? null : 'expired')}
+                >
+                  <View style={[styles.statCard, { borderLeftColor: '#e53935' }]}>
+                    <View style={styles.statCardHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.statValue}>{expiryStats.expired}</Text>
+                        <Text style={styles.statTitle}>Scaduti</Text>
+                        <Text style={styles.statSubtitle}>prodotti</Text>
+                      </View>
+                      <Text style={styles.expandIcon}>{expandedExpiryStat === 'expired' ? '▼' : '▶'}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setExpandedExpiryStat(expandedExpiryStat === 'expiringSoon' ? null : 'expiringSoon')}
+                >
+                  <View style={[styles.statCard, { borderLeftColor: '#ff9800' }]}>
+                    <View style={styles.statCardHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.statValue}>{expiryStats.expiringSoon}</Text>
+                        <Text style={styles.statTitle}>Scadono Presto</Text>
+                        <Text style={styles.statSubtitle}>entro 3 giorni</Text>
+                      </View>
+                      <Text style={styles.expandIcon}>{expandedExpiryStat === 'expiringSoon' ? '▼' : '▶'}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setExpandedExpiryStat(expandedExpiryStat === 'expiringThisWeek' ? null : 'expiringThisWeek')}
+                >
+                  <View style={[styles.statCard, { borderLeftColor: '#ffc107' }]}>
+                    <View style={styles.statCardHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.statValue}>{expiryStats.expiringThisWeek}</Text>
+                        <Text style={styles.statTitle}>Questa Settimana</Text>
+                        <Text style={styles.statSubtitle}>entro 7 giorni</Text>
+                      </View>
+                      <Text style={styles.expandIcon}>{expandedExpiryStat === 'expiringThisWeek' ? '▼' : '▶'}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
               </View>
+              
+              {/* Liste prodotti espansi - fuori dalla griglia */}
+              {expandedExpiryStat === 'expired' && expiryStats.expiredItems.length > 0 && (
+                <View style={styles.expandedProductsList}>
+                  {expiryStats.expiredItems.map((item) => (
+                    <View key={item.id} style={styles.expandedProductItem}>
+                      <Text style={styles.expandedProductName}>{item.name}</Text>
+                      <Text style={styles.expandedProductDetails}>
+                        {item.qty} {item.unit} • Scaduto il {item.expiryDate}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {expandedExpiryStat === 'expiringSoon' && expiryStats.expiringSoonItems.length > 0 && (
+                <View style={styles.expandedProductsList}>
+                  {expiryStats.expiringSoonItems.map((item) => {
+                    const expiry = parseDate(item.expiryDate!);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    if (expiry) {
+                      expiry.setHours(0, 0, 0, 0);
+                      const diffTime = expiry.getTime() - today.getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      return (
+                        <View key={item.id} style={styles.expandedProductItem}>
+                          <Text style={styles.expandedProductName}>{item.name}</Text>
+                          <Text style={styles.expandedProductDetails}>
+                            {item.qty} {item.unit} • Scade tra {diffDays} {diffDays === 1 ? 'giorno' : 'giorni'} ({item.expiryDate})
+                          </Text>
+                        </View>
+                      );
+                    }
+                    return null;
+                  })}
+                </View>
+              )}
+
+              {expandedExpiryStat === 'expiringThisWeek' && expiryStats.expiringThisWeekItems.length > 0 && (
+                <View style={styles.expandedProductsList}>
+                  {expiryStats.expiringThisWeekItems.map((item) => {
+                    const expiry = parseDate(item.expiryDate!);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    if (expiry) {
+                      expiry.setHours(0, 0, 0, 0);
+                      const diffTime = expiry.getTime() - today.getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      return (
+                        <View key={item.id} style={styles.expandedProductItem}>
+                          <Text style={styles.expandedProductName}>{item.name}</Text>
+                          <Text style={styles.expandedProductDetails}>
+                            {item.qty} {item.unit} • Scade tra {diffDays} {diffDays === 1 ? 'giorno' : 'giorni'} ({item.expiryDate})
+                          </Text>
+                        </View>
+                      );
+                    }
+                    return null;
+                  })}
+                </View>
+              )}
+
+              {expandedExpiryStat === 'expired' && expiryStats.expiredItems.length === 0 && (
+                <View style={styles.expandedProductsList}>
+                  <Text style={styles.expandedProductDetails}>Nessun prodotto scaduto</Text>
+                </View>
+              )}
+              {expandedExpiryStat === 'expiringSoon' && expiryStats.expiringSoonItems.length === 0 && (
+                <View style={styles.expandedProductsList}>
+                  <Text style={styles.expandedProductDetails}>Nessun prodotto che scade presto</Text>
+                </View>
+              )}
+              {expandedExpiryStat === 'expiringThisWeek' && expiryStats.expiringThisWeekItems.length === 0 && (
+                <View style={styles.expandedProductsList}>
+                  <Text style={styles.expandedProductDetails}>Nessun prodotto che scade questa settimana</Text>
+                </View>
+              )}
             </View>
 
             {/* Statistiche per categoria */}
@@ -1908,6 +2017,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#999",
     marginTop: 2,
+  },
+  statCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  expandIcon: {
+    fontSize: 14,
+    color: "#666",
+    marginLeft: 8,
+  },
+  expandedProductsList: {
+    width: "100%",
+    marginTop: 12,
+    marginBottom: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#e0e0e0",
+  },
+  expandedProductItem: {
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#0077cc",
+  },
+  expandedProductName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  expandedProductDetails: {
+    fontSize: 12,
+    color: "#666",
   },
   categoryStat: {
     backgroundColor: "white",
