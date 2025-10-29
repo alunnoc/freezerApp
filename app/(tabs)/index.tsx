@@ -4,18 +4,18 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from "react";
 import {
-    Alert,
-    FlatList,
-    Modal,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { OfficialCameraScanner } from "../../components/OfficialCameraScanner";
 import { Item, useStorage } from "../../hooks/useStorage";
@@ -172,22 +172,36 @@ export default function Home() {
         setShowImportOptions(false);
         setImportText("");
       }
+      // Forza un reload dei dati quando si rientra nella tab
+      try {
+        reloadFridge && reloadFridge();
+        reloadFreezer && reloadFreezer();
+        reloadPantry && reloadPantry();
+      } catch {}
     }, [showImportModal])
   );
 
   // Usa il hook personalizzato per la persistenza
-  const { data: fridge, saveData: saveFridge, loading: fridgeLoading } = useStorage<Item[]>("fridge", [
+  const { data: fridge, saveData: saveFridge, loading: fridgeLoading, forceReload: reloadFridge } = useStorage<Item[]>("fridge", [
     { id: "1", name: "Latte", qty: 1, unit: "L", category: "dairy", addedAt: "01/01/2024" },
     { id: "2", name: "Insalata", qty: 2, unit: "pz", category: "vegetables", addedAt: "01/01/2024" },
   ]);
-  const { data: freezer, saveData: saveFreezer, loading: freezerLoading } = useStorage<Item[]>("freezer", [
+  const { data: freezer, saveData: saveFreezer, loading: freezerLoading, forceReload: reloadFreezer } = useStorage<Item[]>("freezer", [
     { id: "3", name: "Piselli surgelati", qty: 1, unit: "busta", category: "frozen", frozenAt: "01/01/2024", addedAt: "01/01/2024" },
     { id: "4", name: "Filetti di merluzzo", qty: 6, unit: "pz", category: "fish", frozenAt: "01/01/2024", addedAt: "01/01/2024" },
   ]);
-  const { data: pantry, saveData: savePantry, loading: pantryLoading } = useStorage<Item[]>("pantry", [
+  const { data: pantry, saveData: savePantry, loading: pantryLoading, forceReload: reloadPantry } = useStorage<Item[]>("pantry", [
     { id: "5", name: "Pasta", qty: 2, unit: "kg", category: "other", addedAt: "01/01/2024" },
     { id: "6", name: "Riso", qty: 1, unit: "kg", category: "other", addedAt: "01/01/2024" },
   ]);
+
+  // Ricarica i dati della sezione corrente quando cambia sezione
+  useEffect(() => {
+    if (section === 'fridge') reloadFridge();
+    else if (section === 'freezer') reloadFreezer();
+    else if (section === 'pantry') reloadPantry();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section]);
 
   // form di aggiunta
   const [nameInput, setNameInput] = useState("");

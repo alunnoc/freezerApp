@@ -22,10 +22,13 @@ export default function MenuScreen() {
   const { data: menu, saveData: saveMenu } = useStorage<WeeklyMenu>('weeklyMenu', defaultMenu);
   
   // Accesso ai dati del frigo, freezer e credenza per i suggerimenti
-  const { data: fridgeData, forceReload: reloadFridge } = useStorage<any[]>('fridge', []);
-  const { data: freezerData, forceReload: reloadFreezer } = useStorage<any[]>('freezer', []);
-  const { data: pantryData, forceReload: reloadPantry } = useStorage<any[]>('pantry', []);
+  const { data: fridgeData, saveData: saveFridge, forceReload: reloadFridge } = useStorage<any[]>('fridge', []);
+  const { data: freezerData, saveData: saveFreezer, forceReload: reloadFreezer } = useStorage<any[]>('freezer', []);
+  const { data: pantryData, saveData: savePantry, forceReload: reloadPantry } = useStorage<any[]>('pantry', []);
   const { data: myRecipes, forceReload: reloadRecipes } = useStorage<any[]>('my-recipes', []);
+  
+  // Traccia l'ultima data processata per il menu
+  const { data: lastProcessedDate, saveData: saveLastProcessedDate } = useStorage<string>('lastProcessedMenuDate', '');
 
   const [editing, setEditing] = useState<{ day: string; field: keyof MenuDay } | null>(null);
   const [tempValue, setTempValue] = useState('');
@@ -40,6 +43,149 @@ export default function MenuScreen() {
     const idx = (jsDay + 6) % 7; // mappa: Lun=0 ... Dom=6
     return WEEK_DAYS[idx];
   }, []);
+
+  // Funzioni helper per gestire le date
+  const formatDateYYYYMMDD = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getYesterdayDate = (): Date => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday;
+  };
+
+  const getDayNameFromDate = (date: Date): string => {
+    const jsDay = date.getDay(); // 0 = Domenica ... 6 = Sabato
+    const idx = (jsDay + 6) % 7; // mappa: Lun=0 ... Dom=6
+    return WEEK_DAYS[idx];
+  };
+
+  // Estrae i nomi dei prodotti da un MenuDay
+  const extractProductNames = (dayMenu: MenuDay): string[] => {
+    const productNames: string[] = [];
+    const fields: (keyof MenuDay)[] = ['lunch', 'menuBimbo', 'dinner'];
+    
+    fields.forEach(field => {
+      const value = dayMenu[field];
+      if (value && value.trim()) {
+        // Separa i prodotti per virgola e pulisce gli spazi
+        const products = value.split(',').map(p => p.trim()).filter(p => p.length > 0);
+        productNames.push(...products);
+      }
+    });
+    
+    return productNames;
+  };
+
+  // Processa il menu del giorno precedente e decrementa i prodotti
+  const processYesterdayMenu = async () => {
+    try {
+      // Calcola la data di ieri
+      const yesterdayDate = getYesterdayDate();
+      const yesterdayDayName = getDayNameFromDate(yesterdayDate);
+      const todayStr = formatDateYYYYMMDD(new Date());
+      
+      // Controlla se il menu di ieri ha contenuti
+      const yesterdayMenu = menu[yesterdayDayName];
+      
+      if (!yesterdayMenu || (!yesterdayMenu.lunch && !yesterdayMenu.menuBimbo && !yesterdayMenu.dinner)) {
+        // Aggiorna la data processata a oggi
+        saveLastProcessedDate(todayStr);
+        return;
+      }
+
+      // Estrai i nomi dei prodotti dal menu di ieri
+      const productNames = extractProductNames(yesterdayMenu);
+      
+      if (productNames.length === 0) {
+        // Aggiorna la data processata a oggi
+        saveLastProcessedDate(todayStr);
+        return;
+      }
+
+      // Decrementa i prodotti in tutte le sezioni
+      let changed = false;
+
+      // Processa Frigo
+      const updatedFridge = [...(fridgeData || [])].map(product => {
+        const nameMatch = productNames.some(name => 
+          product.name?.toLowerCase() === name.toLowerCase()
+        );
+        if (nameMatch && product.qty > 0) {
+          changed = true;
+          if (product.qty === 1) {
+            return null; // Rimuovi se qty = 1
+          }
+          return { ...product, qty: product.qty - 1 };
+        }
+        return product;
+      }).filter(p => p !== null) as any[];
+
+      // Processa Freezer
+      const updatedFreezer = [...(freezerData || [])].map(product => {
+        const nameMatch = productNames.some(name => 
+          product.name?.toLowerCase() === name.toLowerCase()
+        );
+        if (nameMatch && product.qty > 0) {
+          changed = true;
+          if (product.qty === 1) {
+            return null;
+          }
+          return { ...product, qty: product.qty - 1 };
+        }
+        return product;
+      }).filter(p => p !== null) as any[];
+
+      // Processa Dispensa
+      const updatedPantry = [...(pantryData || [])].map(product => {
+        const nameMatch = productNames.some(name => 
+          product.name?.toLowerCase() === name.toLowerCase()
+        );
+        if (nameMatch && product.qty > 0) {
+          changed = true;
+          if (product.qty === 1) {
+            return null;
+          }
+          return { ...product, qty: product.qty - 1 };
+        }
+        return product;
+      }).filter(p => p !== null) as any[];
+
+      // Salva solo se ci sono state modifiche
+      if (changed) {
+        await Promise.all([
+          saveFridge(updatedFridge),
+          saveFreezer(updatedFreezer),
+          savePantry(updatedPantry)
+        ]);
+      }
+
+      // Aggiorna la data processata a oggi
+      saveLastProcessedDate(todayStr);
+      
+    } catch (error) {
+      console.error('Errore nel processamento del menu:', error);
+    }
+  };
+
+  // Processa automaticamente il menu quando necessario
+  useEffect(() => {
+    // Attendi che i dati siano caricati
+    if (fridgeData === undefined || freezerData === undefined || pantryData === undefined || menu === undefined) {
+      return;
+    }
+
+    const todayStr = formatDateYYYYMMDD(new Date());
+    
+    // Se non c'è una data processata o è diversa da oggi, processa ieri
+    if (!lastProcessedDate || lastProcessedDate !== todayStr) {
+      processYesterdayMenu();
+    }
+  }, [fridgeData, freezerData, pantryData, lastProcessedDate, menu]);
 
   // Traccia quando i dati sono caricati
   useEffect(() => {
