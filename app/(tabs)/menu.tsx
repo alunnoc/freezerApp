@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Share, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useStorage } from '../../hooks/useStorage';
 import { generateSummary } from '../../utils/exportData';
 
@@ -26,6 +26,8 @@ export default function MenuScreen() {
   const { data: freezerData, saveData: saveFreezer, forceReload: reloadFreezer } = useStorage<any[]>('freezer', []);
   const { data: pantryData, saveData: savePantry, forceReload: reloadPantry } = useStorage<any[]>('pantry', []);
   const { data: myRecipes, forceReload: reloadRecipes } = useStorage<any[]>('my-recipes', []);
+  // Toggle per abilitare/disabilitare il processamento automatico del menù di ieri
+  const { data: autoProcessMenu, saveData: saveAutoProcessMenu } = useStorage<boolean>('autoProcessMenu', true);
   
   // Traccia l'ultima data processata per il menu
   const { data: lastProcessedDate, saveData: saveLastProcessedDate } = useStorage<string>('lastProcessedMenuDate', '');
@@ -172,20 +174,31 @@ export default function MenuScreen() {
     }
   };
 
-  // Processa automaticamente il menu quando necessario
-  useEffect(() => {
-    // Attendi che i dati siano caricati
-    if (fridgeData === undefined || freezerData === undefined || pantryData === undefined || menu === undefined) {
-      return;
-    }
+  // Edge detector: esegui una sola volta per ogni ingresso schermata
+  const processedOnFocusRef = useRef(false);
 
-    const todayStr = formatDateYYYYMMDD(new Date());
-    
-    // Se non c'è una data processata o è diversa da oggi, processa ieri
-    if (!lastProcessedDate || lastProcessedDate !== todayStr) {
-      processYesterdayMenu();
-    }
-  }, [fridgeData, freezerData, pantryData, lastProcessedDate, menu]);
+  // Reset del guard quando si entra nella schermata
+  useFocusEffect(
+    React.useCallback(() => {
+      processedOnFocusRef.current = false;
+      return () => {};
+    }, [])
+  );
+
+  // Esegui il processamento una sola volta quando i dati sono pronti e la schermata è a fuoco
+  useFocusEffect(
+    React.useCallback(() => {
+      if (processedOnFocusRef.current) return;
+      if (fridgeData === undefined || freezerData === undefined || pantryData === undefined || menu === undefined) {
+        return;
+      }
+      if (autoProcessMenu !== false) {
+        processedOnFocusRef.current = true;
+        processYesterdayMenu();
+      }
+      return () => {};
+    }, [fridgeData, freezerData, pantryData, menu, autoProcessMenu])
+  );
 
   // Traccia quando i dati sono caricati
   useEffect(() => {
@@ -363,12 +376,21 @@ export default function MenuScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Menù settimanale</Text>
-          <TouchableOpacity 
-            style={styles.exportButton}
-            onPress={handleMenuExport}
-          >
-            <Text style={styles.exportButtonText}>📤</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Auto</Text>
+              <Switch
+                value={autoProcessMenu !== false}
+                onValueChange={(v) => saveAutoProcessMenu(v)}
+              />
+            </View>
+            <TouchableOpacity 
+              style={styles.exportButton}
+              onPress={handleMenuExport}
+            >
+              <Text style={styles.exportButtonText}>📤</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView 
@@ -575,6 +597,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 15,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  switchLabel: { fontWeight: '600', marginRight: 8, color: '#333' },
   exportButton: {
     backgroundColor: '#0b67b2',
     borderRadius: 20,
