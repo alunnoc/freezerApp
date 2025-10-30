@@ -308,7 +308,9 @@ export const importFromCSV = (csvContent: string): { fridge: Item[], freezer: It
     }
     
     const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
-    const items: Item[] = [];
+    const fridge: Item[] = [];
+    const freezer: Item[] = [];
+    const pantry: Item[] = [];
     
     // Trova gli indici delle colonne
     const sectionIndex = headers.findIndex(h => h.toLowerCase().includes('sezione'));
@@ -351,18 +353,7 @@ export const importFromCSV = (csvContent: string): { fridge: Item[], freezer: It
         frozenAt: frozenIndex !== -1 && values[frozenIndex] && values[frozenIndex] !== 'N/A' ? values[frozenIndex] : undefined,
         addedAt: addedIndex !== -1 && values[addedIndex] && values[addedIndex] !== 'N/A' ? values[addedIndex] : new Date().toLocaleDateString('it-IT')
       };
-      
-      items.push(item);
-    }
-    
-    // Raggruppa per sezione
-    const fridge: Item[] = [];
-    const freezer: Item[] = [];
-    const pantry: Item[] = [];
-    
-    items.forEach(item => {
-      const section = lines.find(line => line.includes(item.name))?.split(',')[sectionIndex]?.replace(/"/g, '').trim().toLowerCase();
-      
+      // Inserisci direttamente nella sezione corretta (evita ricerche per nome che possono collidere)
       if (section === 'frigo') {
         fridge.push(item);
       } else if (section === 'freezer') {
@@ -370,8 +361,8 @@ export const importFromCSV = (csvContent: string): { fridge: Item[], freezer: It
       } else if (section === 'dispensa') {
         pantry.push(item);
       }
-    });
-    
+    }
+
     return { fridge, freezer, pantry };
   } catch (error) {
     console.error('Errore import CSV:', error);

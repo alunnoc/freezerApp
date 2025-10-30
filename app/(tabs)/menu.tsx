@@ -69,7 +69,8 @@ export default function MenuScreen() {
   // Estrae i nomi dei prodotti da un MenuDay
   const extractProductNames = (dayMenu: MenuDay): string[] => {
     const productNames: string[] = [];
-    const fields: (keyof MenuDay)[] = ['lunch', 'menuBimbo', 'dinner'];
+    // Non considerare la riga "menù bimbo" per l'eliminazione automatica
+    const fields: (keyof MenuDay)[] = ['lunch', 'dinner'];
     
     fields.forEach(field => {
       const value = dayMenu[field];
